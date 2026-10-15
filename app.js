@@ -19,6 +19,7 @@ const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); retur
 let session = null, me = null;       // me = eigenes Profil
 let C = null;                        // geladener Kunde (eigene Daten oder vom Coach ausgewählt)
 let roster = [];                     // Coach: alle Kunden mit Daten
+let codes = [];                      // Coach: Einladungscodes
 let tab = 'heute', coachSel = null, authMode = 'login', authMsg = '', busy = false;
 
 function toast(m){ const t = document.getElementById('toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 2400); }
@@ -157,6 +158,7 @@ function viewCoach(){
   <div class="stack">
   ${pending.length ? `<div class="card stack"><div class="label">Neue Anmeldungen</div>${pending.map(c => `<div class="row between" style="flex-wrap:wrap"><div style="min-width:0"><b>${esc(c.p.name||'Ohne Namen')}</b><div class="small muted" style="word-break:break-all">${esc(c.p.email)}</div></div><div class="row" style="gap:6px"><select id="type-${c.p.id}" style="width:auto">${TYPES.map(t => `<option>${t}</option>`).join('')}</select><button class="btn" data-act="approve" data-id="${c.p.id}">Freischalten</button></div></div>`).join('<hr style="border:0;border-top:1px solid var(--line);margin:0">')}</div>` : ''}
   ${active.map(c => { const r = weekRate(c), {pct} = goalPct(c); return `<button class="pick" data-act="coachsel" data-id="${c.p.id}"><span class="avatar">${esc((c.p.name||'?')[0].toUpperCase())}</span><span class="t-body"><b>${esc(c.p.name)}${c.p.age?', '+c.p.age:''}</b> <span class="chip">${esc(c.p.type_label)}</span><span class="small muted" style="display:block;margin-top:4px">Diese Woche ${r}% · ${weekMinutes(c)} Min · Ziel ${pct}%</span><span class="bar" style="display:block;margin-top:8px;height:8px"><span style="width:${r}%;${r<50?'background:var(--warm)':''}"></span></span></span></button>`; }).join('') || (pending.length ? '' : `<div class="card stack"><h2>Noch keine Kunden</h2><p class="muted" style="margin:0">Schick deinen Kunden den Link zur App. Sie registrieren sich mit Name, E-Mail und Passwort und erscheinen dann hier unter „Neue Anmeldungen“.</p></div>`)}
+  <div class="card stack"><div class="label">Einladungscodes</div><p class="small muted" style="margin:0">Wer bei der Registrierung einen aktiven Code eingibt, ist sofort freigeschaltet.</p>${codes.map(k => `<form class="row" data-form="code" data-id="${k.id}" style="flex-wrap:wrap"><label class="field" style="min-width:120px"><span class="small muted">${esc(k.type_label)}</span><input id="code-${k.id}" value="${esc(k.code)}" required maxlength="30" autocapitalize="characters"></label><button class="btn" style="align-self:flex-end">Speichern</button><button type="button" class="btn ghost" style="align-self:flex-end" data-act="codeactive" data-id="${k.id}">${k.active ? 'Aktiv' : 'Aus'}</button></form>`).join('')}</div>
   <div class="card stack"><div class="label">Link für Kunden</div><div style="word-break:break-all"><b>${esc(location.origin + location.pathname)}</b></div><button class="btn ghost" data-act="copylink">Link kopieren</button></div>
   <button class="btn ghost" data-act="logout">Abmelden</button></div>`;
 }
@@ -187,6 +189,7 @@ function viewAuth(){
    ${reg ? `<label class="field"><span class="small muted">Vorname</span><input id="uName" autocomplete="given-name" required maxlength="40"></label>` : ''}
    <label class="field"><span class="small muted">E-Mail</span><input id="uMail" type="email" autocomplete="email" required></label>
    <label class="field"><span class="small muted">Passwort${reg ? ' (mindestens 8 Zeichen)' : ''}</span><input id="uPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}" minlength="${reg ? 8 : 1}" required></label>
+   ${reg ? `<label class="field"><span class="small muted">Einladungscode von Jonathan (falls du einen hast)</span><input id="uCode" autocapitalize="characters" autocomplete="off" maxlength="30"></label>` : ''}
    ${authMsg}
    <button class="btn" ${busy ? 'disabled' : ''}>${busy ? 'Einen Moment …' : reg ? 'Konto erstellen' : 'Anmelden'}</button>
   </form>
@@ -217,11 +220,12 @@ async function boot(){
   try {
     if (!session) { me = null; C = null; render(); return; }
     me = await q(sb.from('profiles').select('*').eq('id', session.user.id).single());
-    if (me.role === 'coach') await loadRoster();
+    if (me.role === 'coach') { await loadRoster(); await loadCodes(); }
     else if (me.role === 'client') C = await loadClient(me.id);
   } catch (e) { fail(e); }
   render();
 }
+async function loadCodes(){ codes = await q(sb.from('invite_codes').select('*').order('code')); }
 async function refreshCoachClient(id){ const fresh = await loadClient(id); roster = roster.map(c => c.p.id === id ? fresh : c); }
 
 document.addEventListener('click', async e => {
@@ -241,6 +245,7 @@ document.addEventListener('click', async e => {
     }
     if (a === 'delextra') { await q(sb.from('extras').delete().eq('id', id)); C = await loadClient(me.id); toast('Gelöscht'); }
     if (a === 'approve') { const type = document.getElementById('type-'+id).value; await q(sb.from('profiles').update({role:'client', type_label:type}).eq('id', id)); await loadRoster(); coachSel = id; toast('Freigeschaltet. Jetzt Plan und Ziel anlegen.'); }
+    if (a === 'codeactive') { const k = codes.find(x => x.id === id); await q(sb.from('invite_codes').update({active: !k.active}).eq('id', id)); await loadCodes(); toast(k.active ? 'Code ausgeschaltet' : 'Code eingeschaltet'); }
     if (a === 'coachsel') { coachSel = id; render(); scrollTo(0,0); return; }
     if (a === 'coachback') { coachSel = null; await loadRoster(); }
     if (a === 'delitem') { await q(sb.from('plan_items').delete().eq('id', id)); await refreshCoachClient(coachSel); toast('Einheit entfernt'); }
@@ -256,10 +261,10 @@ document.addEventListener('submit', async e => {
   try {
     if (f === 'auth') {
       busy = true; authMsg = ''; const mail = v('uMail'), pass = document.getElementById('uPass').value;
-      const name = authMode === 'register' ? v('uName') : '';
-      render(); document.getElementById('uMail').value = mail; if (name) document.getElementById('uName').value = name;
+      const name = authMode === 'register' ? v('uName') : '', code = authMode === 'register' ? v('uCode') : '';
+      render(); document.getElementById('uMail').value = mail; if (name) document.getElementById('uName').value = name; if (code) document.getElementById('uCode').value = code;
       const res = authMode === 'register'
-        ? await sb.auth.signUp({email: mail, password: pass, options: {data: {name}}})
+        ? await sb.auth.signUp({email: mail, password: pass, options: {data: {name, invite: code}}})
         : await sb.auth.signInWithPassword({email: mail, password: pass});
       busy = false;
       if (res.error) { authMsg = authErr(res.error.message); render(); document.getElementById('uMail').value = mail; return; }
@@ -268,6 +273,7 @@ document.addEventListener('submit', async e => {
     }
     if (f === 'extra') { await q(sb.from('extras').insert({client_id: me.id, day: iso(today()), title: v('exTitle'), minutes: +v('exMin') || 0})); C = await loadClient(me.id); toast('Extra-Einheit gespeichert'); }
     if (f === 'measure') { const val = parseNum(v('mVal')); if (val == null) { toast('Bitte eine Zahl eintragen, z. B. 79,5'); return; } await q(sb.from('measurements').upsert({client_id: me.id, day: iso(today()), value: val}, {onConflict: 'client_id,day'})); C = await loadClient(me.id); toast('Wert eingetragen'); }
+    if (f === 'code') { const id = e.target.dataset.id, val = v('code-'+id).toUpperCase().replace(/\s+/g, ''); if (!val) return; await q(sb.from('invite_codes').update({code: val}).eq('id', id)); await loadCodes(); toast('Code gespeichert: ' + val); }
     if (f === 'note') { await q(sb.from('profiles').update({coach_note: v('noteTxt')}).eq('id', coachSel)); await refreshCoachClient(coachSel); toast('Nachricht gespeichert'); }
     if (f === 'profile') { await q(sb.from('profiles').update({name: v('pName'), age: parseInt(v('pAge')) || null, type_label: v('pType')}).eq('id', coachSel)); await refreshCoachClient(coachSel); toast('Gespeichert'); }
     if (f === 'goal') { const s = parseNum(v('gStart')), t = parseNum(v('gTarget')); if (s == null || t == null) { toast('Start und Ziel bitte als Zahl eintragen'); return; } await q(sb.from('profiles').update({goal_title: v('gTitle'), goal_start: s, goal_target: t, goal_unit: v('gUnit')}).eq('id', coachSel)); await refreshCoachClient(coachSel); toast('Ziel gespeichert'); }
