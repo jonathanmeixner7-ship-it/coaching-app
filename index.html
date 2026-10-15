@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jonathan Coaching</title>
+<meta name="theme-color" content="#1E6E52">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Coaching">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);color-scheme:light}
+body{margin:0}
+
+/* Layout: eine Handy-Spalte (max 520px), oben Kopfzeile, unten feste Tab-Leiste – große Schrift für Kunden 40+ */
+:root{
+  --bg:#F2F5F3; --card:#FFFFFF; --fg:#13211B; --muted:#5B6B63; --line:#DCE4DF;
+  --accent:#1E6E52; --accent-soft:#DDEFE7; --warm:#D9682B; --warm-soft:#FBE7DA;
+  --done:#1E6E52; --danger:#B3261E;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1613; --card:#18221D; --fg:#E7EFEA; --muted:#9AAAA2; --line:#2A3832;
+  --accent:#5FC59C; --accent-soft:#1D3A2E; --warm:#F08A50; --warm-soft:#3A2519;
+  --done:#5FC59C; --danger:#FF8A80; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1613; --card:#18221D; --fg:#E7EFEA; --muted:#9AAAA2; --line:#2A3832;
+  --accent:#5FC59C; --accent-soft:#1D3A2E; --warm:#F08A50; --warm-soft:#3A2519;
+  --done:#5FC59C; --danger:#FF8A80; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.45}
+.wrap{max-width:520px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 110px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:1.75rem;font-weight:800}
+h2{font-size:1.25rem;font-weight:800}
+h3{font-size:1.05rem;font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:.88rem}
+.label{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;align-items:center}
+.between{justify-content:space-between}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.demo{background:var(--warm-soft);color:var(--fg);border-radius:12px;padding:8px 12px;font-size:.85rem}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.btn{background:var(--accent);color:var(--card);border:0;border-radius:12px;padding:12px 16px;font-weight:700;min-height:48px}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+.btn.link{background:none;border:0;color:var(--muted);padding:6px;min-height:auto;text-decoration:underline}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--warm);outline-offset:2px}
+input,select,textarea{background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-height:46px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+
+/* Kopf */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px 14px}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-family:var(--display);font-weight:800;border:0}
+
+/* Tagesring */
+.today-head{display:flex;gap:16px;align-items:center}
+.ring{flex:none}
+.ring text{font-family:var(--display);font-weight:800;fill:var(--fg)}
+.coachmsg{border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:4px 14px 14px 4px;padding:12px 14px}
+
+/* Aufgaben */
+.task{display:flex;gap:14px;align-items:center;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px;min-height:68px}
+.task .box{flex:none;width:34px;height:34px;border-radius:10px;border:2.5px solid var(--muted);display:grid;place-items:center}
+.task.is-done{border-color:var(--done);background:var(--accent-soft)}
+.task.is-done .box{background:var(--done);border-color:var(--done)}
+.task.is-done .box::after{content:"";width:9px;height:16px;border:solid var(--card);border-width:0 3.5px 3.5px 0;transform:translateY(-2px) rotate(45deg)}
+.task.is-done .t-title{text-decoration:line-through;text-decoration-thickness:2px}
+.t-body{min-width:0;flex:1}
+.t-title{font-weight:700;display:block}
+.chip{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.chip.ems{background:var(--warm-soft);color:var(--warm);border-color:transparent}
+.chip.ausdauer{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+
+/* Woche */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.wd{background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:8px 2px;text-align:center;font-size:.8rem}
+.wd b{display:block;font-family:var(--display);font-size:1rem}
+.wd.today{border-color:var(--accent);border-width:2.5px}
+.wd .dot{display:block;margin:6px auto 0;width:12px;height:12px;border-radius:50%;background:var(--line)}
+.wd .dot.full{background:var(--done)} .wd .dot.part{background:var(--warm)}
+.daylist{display:flex;flex-direction:column;gap:6px}
+.dayline{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.dayline:last-child{border-bottom:0}
+
+/* Zahlen */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat b{display:block;font-family:var(--display);font-size:1.6rem;font-variant-numeric:tabular-nums}
+.bar{height:14px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent);border-radius:99px}
+.chart text{fill:var(--muted);font-size:11px;font-family:var(--body)}
+
+/* Erfolge */
+.badges{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.badge{border:1.5px dashed var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.badge .medal{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;background:var(--line);color:var(--muted)}
+.badge.got{border-style:solid;border-color:var(--warm);background:var(--warm-soft)}
+.badge.got .medal{background:var(--warm);color:var(--card)}
+
+/* Tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs .in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.tab{background:none;border:0;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.8rem;font-weight:700;color:var(--muted);min-height:62px}
+.tab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-current="page"]{color:var(--accent)}
+
+/* Auswahl */
+.pick{display:flex;gap:14px;align-items:center;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:14px}
+.pick:hover{border-color:var(--accent)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;max-width:90vw}
+.sheet{border-top:1px solid var(--line);padding-top:12px}
+.formrow{display:flex;gap:10px;flex-wrap:wrap}
+@media (prefers-reduced-motion:no-preference){.task,.bar span{transition:background .2s,border-color .2s,width .4s}}
+
+/* Anmeldung */
+.auth{max-width:420px;margin:0 auto;padding-top:28px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:none;border-radius:9px;padding:10px;font-weight:700;color:var(--muted);min-height:44px}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--fg)}
+.err{color:var(--danger);font-weight:700;margin:0}
+.ok{color:var(--accent);font-weight:700;margin:0}
+.loading{padding:60px 0;text-align:center;color:var(--muted)}
+.pill{display:inline-block;font-size:.78rem;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--warm-soft);color:var(--warm)}
+.reminder{background:var(--warm-soft);border-radius:14px;padding:12px 14px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading">Lädt …</div></div>
+<nav class="tabs" id="tabs" hidden><div class="in" id="tabsIn"></div></nav>
+<div class="toast" id="toast" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
