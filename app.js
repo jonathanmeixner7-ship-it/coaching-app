@@ -17,6 +17,7 @@ const dayKey = d => DAYS[dayIdx(d)];
 const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
 const today = () => { const t = new Date(); t.setHours(12,0,0,0); return t; };
 const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
+const gender = () => (C && C.p && C.p.gender) || 'm';
 const shortDate = d => new Date(d+'T12:00').toLocaleDateString('de-DE',{day:'numeric',month:'numeric'});
 
 let session = null, me = null;       // me = eigenes Profil
@@ -96,7 +97,7 @@ function taskBtn(t, isDone){
   return `<button class="task ${isDone?'is-done':''}" data-act="${hasEx ? 'openitem' : 'toggle'}" data-id="${t.id}" aria-pressed="${isDone}"><span class="box"></span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min?`<span class="chip">${t.min} Min</span>`:''}${hasEx?`<span class="chip">${t.exercises.length} Übungen</span>`:''}${t.note?`<span class="small muted">${esc(t.note)}</span>`:''}</span></span>${hasEx && !isDone ? '<span class="go">START ›</span>' : ''}</button>`;
 }
 function muscleChips(lv){ const hot = Object.keys(lv).filter(k => lv[k] >= 1), warm = Object.keys(lv).filter(k => lv[k] < 1); return `<div class="musclelist">${hot.map(k => `<span class="chip kraft">${BODY.NAMES[k]}</span>`).join('')}${warm.map(k => `<span class="chip">${BODY.NAMES[k]}</span>`).join('')}</div>`; }
-function routineCard(r){ const first = EXMAP[r.items[0][0]]; return `<div class="routine"><div class="row between" style="align-items:flex-start"><div class="label" style="color:var(--accent)">${r.min} Min · ${r.items.length} Übungen · ${r.ort === 'studio' ? 'Studio' : 'Zuhause'}</div><div class="mini">${ANIM.svg(first.anim, muscleLevels(r.items.map(i => i[0])))}</div></div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
+function routineCard(r){ const first = EXMAP[r.items[0][0]]; return `<div class="routine"><div class="row between" style="align-items:flex-start"><div class="label" style="color:var(--accent)">${r.min} Min · ${r.items.length} Übungen · ${r.ort === 'studio' ? 'Studio' : 'Zuhause'}</div><div class="mini">${ANIM.svg(first.anim, muscleLevels(r.items.map(i => i[0])), gender())}</div></div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
 
 // ---------- Ansichten Kunde ----------
 function viewHeute(c){
@@ -147,7 +148,7 @@ function viewUebungen(c){
   <h2>Übungen</h2>
   <div class="card stack"><div class="label">${muscleSel ? 'Übungen für: ' + BODY.NAMES[muscleSel] : 'Tipp auf einen Muskel'}</div>${BODY.pair(lv, {clickable:true})}${muscleSel ? '<button class="btn ghost" data-act="musclereset">Alle Muskeln zeigen</button>' : ''}</div>
   <div class="filters">${FILTERS.map(([k,l]) => `<button class="fchip" data-act="exfilter" data-id="${k}" aria-pressed="${exFilter===k}">${l}</button>`).join('')}</div>
-  <div class="stack" style="gap:10px">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${ANIM.svg(e.anim, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
+  <div class="stack" style="gap:10px">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${ANIM.svg(e.anim, muscleLevels([e.id]), gender())}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
   <p class="credit">Übungen und Grafiken von Jonathan Coaching. Bei Schmerzen abbrechen und mit Jonathan sprechen.</p>
   </div>`;
 }
@@ -165,14 +166,23 @@ function chart(c){
   ${h.map((x,i) => `<circle cx="${X(i)}" cy="${Y(x.value)}" r="${i===h.length-1?5.5:3.5}" fill="var(--accent)"/>${i % step === 0 || i === h.length-1 ? `<text x="${X(i)}" y="${H-6}" text-anchor="middle">${shortDate(x.date)}</text>` : ''}`).join('')}
   <text x="4" y="${Y(h[0].value)+4}">${fmt(h[0].value)}</text></svg>`;
 }
+// Realistisches Körperbild mit Messringen (Position in % vom Bild: y, x-Mitte, Breite)
+const PHOTO_RINGS = {
+  m: {chest:[27,50,40], arm:[31,27,11], waist:[38,50,31], hip:[44,50,35], thigh:[52,41,17]},
+  w: {chest:[27,50,32], arm:[31,30,9], waist:[37,50,25], hip:[44,50,33], thigh:[52,42,15]}
+};
+function bodyPhoto(c, v){
+  const g = c.p.gender === 'w' ? 'w' : 'm', R = PHOTO_RINGS[g];
+  const items = [['chest','Brust'],['arm','Oberarm'],['waist','Taille'],['hip','Hüfte'],['thigh','Oberschenkel']];
+  return `<div class="bodyphoto"><img src="img/koerper_${g}.jpg?v=1" alt="Körperbild" onerror="this.closest('.bodyphoto').classList.add('noimg')">${items.map(([k,l], i) => { const [y,x,w] = R[k], left = i % 2 === 0; return `<span class="pring${v[k] != null ? ' on' : ''}" style="top:${y}%;left:${x - w/2}%;width:${w}%"></span><span class="plabel ${left ? 'l' : 'r'}" style="top:${y}%">${l}<b>${v[k] != null ? fmt(v[k]) + ' cm' : '–'}</b></span>`; }).join('')}${v.body_fat != null ? `<span class="plabel fat" style="top:61%">Körperfett<b>${fmt(v.body_fat)} %</b></span>` : ''}</div>`;
+}
 function bodyCard(c, editable){
   const {v, first} = latestBody(c);
-  const rings = BODY.RINGS.filter(r => v[r.key] != null);
   const last = c.body.length ? c.body[c.body.length-1].day : null;
   const box = ([k,l,u]) => { const d = v[k] != null && first[k] != null ? v[k] - first[k] : 0; const cls = !d ? '' : LOWER_IS_BETTER.includes(k) ? (d < 0 ? 'good' : 'bad') : 'good'; return `<div class="mbox"><span class="small muted">${l}</span><b>${v[k] != null ? fmt(v[k]) + ' ' + u : '–'}</b>${d ? `<span class="delta ${cls}">${d > 0 ? '+' : ''}${fmt(d)} ${u} seit Start</span>` : ''}</div>`; };
   return `<div class="card stack"><div class="row between"><div class="label">Körpervermessung</div>${last ? `<span class="small muted">zuletzt ${shortDate(last)}</span>` : ''}</div>
-   <div class="bodywrap"><div>${BODY.figure('front', {}, {rings})}</div><div class="measures" style="grid-template-columns:1fr">${MEASURES.filter(([k]) => ['chest','waist','hip','thigh'].includes(k)).map(box).join('')}</div></div>
-   <div class="measures">${MEASURES.filter(([k]) => ['weight','body_fat','arm'].includes(k)).map(box).join('')}</div>
+   ${bodyPhoto(c, v)}
+   <div class="measures">${MEASURES.map(box).join('')}</div>
    ${c.body.length ? '' : `<p class="muted small" style="margin:0">${editable ? 'Noch keine Maße. Trag die Werte der Körpervermessung unten ein.' : 'Bei der nächsten Körpervermessung trägt Jonathan deine Maße hier ein. Du kannst sie auch selbst messen.'}</p>`}
    <details${editable ? ' open' : ''}><summary style="font-weight:700;cursor:pointer;min-height:28px">${editable ? 'Neue Messung eintragen' : '+ Selbst gemessen? Eintragen'}</summary>
     <form class="stack sheet" data-form="body" style="margin-top:12px"><div class="measures">${MEASURES.map(([k,l,u]) => `<label class="field"><span class="small muted">${l} (${u})</span><input id="b-${k}" inputmode="decimal" placeholder="${v[k] != null ? fmt(v[k]) : ''}"></label>`).join('')}</div><button class="btn">Messung speichern</button></form></details></div>`;
@@ -215,7 +225,7 @@ function exDetail(e){
   const lv = muscleLevels([e.id]);
   return `<div class="wrap stack"><div class="top"><button class="btn ghost" data-act="closeov">← Zurück</button><span class="chip ${e.kat === 'ems' ? 'ems' : 'kraft'}">${esc(KAT[e.kat])}</span></div>
   <h1>${esc(e.name)}</h1>
-  <div class="animbox">${ANIM.svg(e.anim, lv)}</div>
+  <div class="animbox">${ANIM.svg(e.anim, lv, gender())}</div>
   <div class="card stack"><div class="label">Diese Muskeln arbeiten</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">${esc(ORT[e.ort])}</span><span class="chip">${esc(e.geraet)}</span><span class="chip">${e.sets} × ${esc(e.reps)}</span></div>
   <div class="card stack"><div class="label">So geht's</div><ol class="steps">${e.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
@@ -233,7 +243,7 @@ function viewWorkout(){
   <h1>${esc(W.title)}</h1>
   <div class="progress"><span style="width:${total ? dn/total*100 : 0}%"></span></div>
   <div class="card stack"><div class="label">Diese Muskeln trainierst du</div>${BODY.pair(lv)}</div>
-  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${ANIM.svg(e.anim, muscleLevels([e.id]))}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div><button class="btn ghost" style="min-height:38px;padding:6px 12px;margin-top:6px" data-act="exinfo" data-id="${e.id}">So geht's</button></div></div>
+  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${ANIM.svg(e.anim, muscleLevels([e.id]), gender())}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div><button class="btn ghost" style="min-height:38px;padding:6px 12px;margin-top:6px" data-act="exinfo" data-id="${e.id}">So geht's</button></div></div>
     <div class="stack" style="gap:8px"><div class="setrow small muted"><span>Satz</span><span>${sec ? 'Zeit' : 'Wdh.'}</span><span>${e.ort === 'studio' ? 'kg' : ''}</span><span></span></div>
     ${it.done.map((d, s) => `<div class="setrow"><span class="n">${s+1}</span><span>${esc(it.reps)}</span>${e.ort === 'studio' ? `<input data-kg="${i}-${s}" inputmode="decimal" value="${esc(it.kg[s])}" aria-label="Gewicht Satz ${s+1}">` : '<span></span>'}<button class="setbtn ${d ? 'on' : ''}" data-act="set" data-id="${i}-${s}" aria-label="Satz ${s+1} erledigt" aria-pressed="${d}"></button></div>`).join('')}</div></div>`; }).join('')}
   <button class="btn" data-act="finish">${dn === total ? 'Training abschließen' : 'Training beenden'}</button>
@@ -322,7 +332,7 @@ function viewCoachEdit(c){
   ${bodyCard(c, true)}
   <form class="card stack" data-form="goal"><div class="label">Ziel</div><label class="field"><span class="small muted">Beschreibung</span><input id="gTitle" value="${esc(p.goal_title)}" required placeholder="z. B. 5 kg leichter"></label><div class="formrow"><label class="field"><span class="small muted">Start</span><input id="gStart" inputmode="decimal" value="${p.goal_start == null ? '' : fmt(p.goal_start)}" required></label><label class="field"><span class="small muted">Ziel</span><input id="gTarget" inputmode="decimal" value="${p.goal_target == null ? '' : fmt(p.goal_target)}" required></label><label class="field" style="flex:0 0 80px"><span class="small muted">Einheit</span><input id="gUnit" value="${esc(p.goal_unit)}" required></label></div><button class="btn">Ziel speichern</button>
    ${c.goal.history.length ? `<div class="small muted">Letzte Werte: ${c.goal.history.slice(-4).map(h => `${shortDate(h.date)}: ${fmt(h.value)}`).join(' · ')}</div>` : ''}</form>
-  <form class="card stack" data-form="profile"><div class="label">Kunde</div><div class="formrow"><label class="field"><span class="small muted">Name</span><input id="pName" value="${esc(p.name)}" required></label><label class="field" style="flex:0 0 90px"><span class="small muted">Alter</span><input id="pAge" type="number" min="10" max="99" value="${p.age ?? ''}"></label></div><label class="field"><span class="small muted">Betreuung</span><select id="pType">${TYPES.map(t => `<option ${t===p.type_label?'selected':''}>${t}</option>`).join('')}</select></label><button class="btn">Speichern</button></form>
+  <form class="card stack" data-form="profile"><div class="label">Kunde</div><div class="formrow"><label class="field"><span class="small muted">Name</span><input id="pName" value="${esc(p.name)}" required></label><label class="field" style="flex:0 0 90px"><span class="small muted">Alter</span><input id="pAge" type="number" min="10" max="99" value="${p.age ?? ''}"></label></div><div class="formrow"><label class="field"><span class="small muted">Betreuung</span><select id="pType">${TYPES.map(t => `<option ${t===p.type_label?'selected':''}>${t}</option>`).join('')}</select></label><label class="field" style="flex:0 0 130px"><span class="small muted">Figur in der App</span><select id="pGender"><option value="m" ${p.gender !== 'w' ? 'selected' : ''}>Mann</option><option value="w" ${p.gender === 'w' ? 'selected' : ''}>Frau</option></select></label></div><button class="btn">Speichern</button></form>
   <button class="btn link" style="color:var(--danger)" data-act="archive" data-id="${p.id}">Kunde archivieren</button></div>`;
 }
 
@@ -462,7 +472,7 @@ document.addEventListener('submit', async e => {
     }
     if (f === 'code') { const id = e.target.dataset.id, val = v('code-'+id).toUpperCase().replace(/\s+/g, ''); if (!val) return; await q(sb.from('invite_codes').update({code: val}).eq('id', id)); await loadCodes(); toast('Code gespeichert: ' + val); }
     if (f === 'note') { await q(sb.from('profiles').update({coach_note: v('noteTxt')}).eq('id', coachSel)); await refreshCoachClient(coachSel); toast('Nachricht gespeichert'); }
-    if (f === 'profile') { await q(sb.from('profiles').update({name: v('pName'), age: parseInt(v('pAge')) || null, type_label: v('pType')}).eq('id', coachSel)); await refreshCoachClient(coachSel); toast('Gespeichert'); }
+    if (f === 'profile') { await q(sb.from('profiles').update({name: v('pName'), age: parseInt(v('pAge')) || null, type_label: v('pType'), gender: v('pGender')}).eq('id', coachSel)); await refreshCoachClient(coachSel); toast('Gespeichert'); }
     if (f === 'goal') { const s = parseNum(v('gStart')), t = parseNum(v('gTarget')); if (s == null || t == null) { toast('Start und Ziel bitte als Zahl eintragen'); return; } await q(sb.from('profiles').update({goal_title: v('gTitle'), goal_start: s, goal_target: t, goal_unit: v('gUnit')}).eq('id', coachSel)); await refreshCoachClient(coachSel); toast('Ziel gespeichert'); }
     if (f === 'add') { const exs = routineItems(v('aRoutine')); await q(sb.from('plan_items').insert({client_id: coachSel, weekday: +v('aDay'), title: v('aTitle'), kind: v('aKind'), minutes: +v('aMin') || 0, note: v('aNote'), exercises: exs})); await refreshCoachClient(coachSel); toast('Einheit hinzugefügt'); }
   } catch (err) { busy = false; fail(err); }

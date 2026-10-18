@@ -102,23 +102,61 @@ const ANIM = (() => {
     const c = v => v >= 1 ? ' hot' : v > 0 ? ' warm' : '';
     return {legs: c(z.legs), torso: c(z.torso), arms: c(z.arms)};
   }
-  function figure(p, z, mv){
+  // Plastische Körperteile: verjüngte Kapseln mit Lichtkante, Rumpf als gefüllte Form
+  const f1 = n => n.toFixed(1);
+  function capsule(a, b, r1, r2, cls){
+    const dx = b[0]-a[0], dy = b[1]-a[1], l = Math.hypot(dx, dy) || 1, nx = -dy/l, ny = dx/l;
+    const pts = [[a[0]+nx*r1, a[1]+ny*r1], [b[0]+nx*r2, b[1]+ny*r2], [b[0]-nx*r2, b[1]-ny*r2], [a[0]-nx*r1, a[1]-ny*r1]];
+    const s = nx*-0.5 + ny*-1 > 0 ? 1 : -1; // Licht kommt von oben links
+    const h = [[a[0]+nx*r1*.42*s, a[1]+ny*r1*.42*s], [b[0]+nx*r2*.42*s, b[1]+ny*r2*.42*s]];
+    return `<g class="${cls}"><path class="sk" d="M${pts.map(p => f1(p[0])+','+f1(p[1])).join(' L')} Z"/><circle class="sk" cx="${f1(a[0])}" cy="${f1(a[1])}" r="${r1}"/><circle class="sk" cx="${f1(b[0])}" cy="${f1(b[1])}" r="${r2}"/><line class="hl" x1="${f1(h[0][0])}" y1="${f1(h[0][1])}" x2="${f1(h[1][0])}" y2="${f1(h[1][1])}" stroke-width="${f1(Math.min(r1, r2)*.55)}"/></g>`;
+  }
+  const at = (a, b, t) => [a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t];
+  function leg(hip, k, an, toe, cls, g){
+    const calf = at(k, an, .32);
+    return capsule(hip, k, g === 'w' ? 11.5 : 11, g === 'w' ? 7 : 7.5, cls) + capsule(k, calf, 7, g === 'w' ? 7.2 : 8, cls) + capsule(calf, an, g === 'w' ? 7.2 : 8, 4.5, cls) + capsule(an, toe, 4.6, 3.4, cls.replace(/ (hot|warm)/, ''));
+  }
+  function arm(sh, e, h, cls, g){
+    const bi = at(sh, e, .45), fa = at(e, h, .3);
+    return capsule(sh, bi, g === 'w' ? 6 : 7, g === 'w' ? 5.8 : 7.4, cls) + capsule(bi, e, g === 'w' ? 5.8 : 7.4, 5, cls) + capsule(e, fa, 5.2, g === 'w' ? 5 : 5.8, cls) + capsule(fa, h, g === 'w' ? 5 : 5.8, 3.6, cls) + `<g class="${cls}"><circle class="sk" cx="${f1(h[0])}" cy="${f1(h[1])}" r="4.6"/></g>`;
+  }
+  function torso(s, cls, g){
+    // Breiten vorne/hinten entlang der Wirbelsäule (Hüfte → Schulter)
+    const F = g === 'w' ? [11, 9.5, 9, 14.5, 9] : [11, 10.5, 10.5, 14, 10];
+    const B = g === 'w' ? [15.5, 11, 9.5, 10.5, 10] : [14, 10.5, 10.5, 12.5, 11];
+    const T = [0, .25, .45, .72, 1], q = t => { const u = 1-t; return [u*u*s.hip[0] + 2*u*t*s.mid[0] + t*t*s.sh[0], u*u*s.hip[1] + 2*u*t*s.mid[1] + t*t*s.sh[1]]; };
+    const tan = t => { const a = q(Math.max(0, t-.02)), b = q(Math.min(1, t+.02)), l = Math.hypot(b[0]-a[0], b[1]-a[1]) || 1; return [(b[0]-a[0])/l, (b[1]-a[1])/l]; };
+    const front = [], back = [];
+    T.forEach((t, i) => { const c = q(t), d = tan(t), n = [-d[1], d[0]]; front.push([c[0] + n[0]*F[i], c[1] + n[1]*F[i]]); back.push([c[0] - n[0]*B[i], c[1] - n[1]*B[i]]); });
+    const pts = front.concat(back.reverse());
+    let d = `M${f1((pts[0][0]+pts[pts.length-1][0])/2)},${f1((pts[0][1]+pts[pts.length-1][1])/2)}`;
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i+1) % pts.length]; d += ` Q${f1(a[0])},${f1(a[1])} ${f1((a[0]+b[0])/2)},${f1((a[1]+b[1])/2)}`; }
+    const hl = [q(.2), q(.85)].map(c => c), side = tan(.5), n = [-side[1], side[0]], sgn = n[0]*-0.5 + n[1]*-1 > 0 ? 1 : -1;
+    return `<g class="${cls}"><path class="sk" d="${d} Z"/><line class="hl" x1="${f1(hl[0][0]+n[0]*6*sgn)}" y1="${f1(hl[0][1]+n[1]*6*sgn)}" x2="${f1(hl[1][0]+n[0]*7*sgn)}" y2="${f1(hl[1][1]+n[1]*7*sgn)}" stroke-width="5"/></g>`;
+  }
+  function figure(p, z, mv, g){
     const s = solve(p); let out = '';
-    if (mv.poles) out += seg(s.hF, [s.hF[0] - 30, -1], 2.5, 'pole') ;
-    out += seg(s.sh, s.eF, 11, 'far' + z.arms) + seg(s.eF, s.hF, 9, 'far' + z.arms);
-    out += seg(s.hip, s.kF, 15, 'far' + z.legs) + seg(s.kF, s.aF, 12, 'far' + z.legs) + seg(s.aF, s.tF, 8, 'far');
-    out += `<path class="near torso${z.torso}" d="M${s.hip[0].toFixed(1)},${s.hip[1].toFixed(1)} Q${s.mid[0].toFixed(1)},${s.mid[1].toFixed(1)} ${s.sh[0].toFixed(1)},${s.sh[1].toFixed(1)}" stroke-width="24" fill="none"/>`;
-    out += seg(s.sh, s.neck, 9, 'near') + `<circle class="headc" cx="${s.head[0].toFixed(1)}" cy="${s.head[1].toFixed(1)}" r="${L.head}"/>`;
-    out += seg(s.hip, s.kN, 16, 'near' + z.legs) + seg(s.kN, s.aN, 13, 'near' + z.legs) + seg(s.aN, s.tN, 8, 'near');
-    out += seg(s.sh, s.eN, 12, 'near' + z.arms) + seg(s.eN, s.hN, 10, 'near' + z.arms);
-    if (mv.dumbbell) for (const h of mv.dumbbell === 'near' ? [s.hN] : [s.hF, s.hN]) out += `<rect class="weight" x="${(h[0]-9).toFixed(1)}" y="${(h[1]-4).toFixed(1)}" width="18" height="8" rx="3"/>`;
-    if (mv.bar) out += `<rect class="weight" x="${(s.hN[0]-4).toFixed(1)}" y="${(s.hN[1]-4).toFixed(1)}" width="8" height="8" rx="2"/>`;
+    const near = 'part near', far = 'part far';
+    if (mv.poles) out += seg(s.hF, [s.hF[0] - 30, -1], 2.5, 'pole');
+    out += arm(s.sh, s.eF, s.hF, far + z.arms, g);
+    out += leg(s.hip, s.kF, s.aF, s.tF, far + z.legs, g);
+    out += torso(s, near + z.torso, g);
+    out += capsule(s.sh, s.neck, 6, 5.5, near);
+    const hd = dir(p.lean + p.tilt), ang = Math.atan2(hd[1], hd[0]) * 180 / Math.PI + 90;
+    if (g === 'w') out += `<circle class="hair" cx="${f1(s.head[0] - hd[1]*-9 - hd[0]*2)}" cy="${f1(s.head[1] + hd[0]*-9 - hd[1]*2)}" r="7"/>`;
+    out += `<g class="${near}"><ellipse class="sk" cx="${f1(s.head[0])}" cy="${f1(s.head[1])}" rx="10.5" ry="12.5" transform="rotate(${f1(ang)} ${f1(s.head[0])} ${f1(s.head[1])})"/></g>`;
+    if (g === 'w') out += `<path class="hair" d="M${f1(s.head[0]-11)},${f1(s.head[1]-1)} A11.5,12.5 0 0 1 ${f1(s.head[0]+11)},${f1(s.head[1]-1)}" transform="rotate(${f1(ang)} ${f1(s.head[0])} ${f1(s.head[1])})"/>`;
+    out += capsule(s.sh, at(s.sh, s.eN, .35), g === 'w' ? 8 : 9.5, 7, near + z.arms);
+    out += leg(s.hip, s.kN, s.aN, s.tN, near + z.legs, g);
+    out += arm(s.sh, s.eN, s.hN, near + z.arms, g);
+    if (mv.dumbbell) for (const h of mv.dumbbell === 'near' ? [s.hN] : [s.hF, s.hN]) out += `<rect class="weight" x="${f1(h[0]-10)}" y="${f1(h[1]-4.5)}" width="20" height="9" rx="3"/>`;
+    if (mv.bar) out += `<rect class="weight" x="${f1(s.hN[0]-4.5)}" y="${f1(s.hN[1]-4.5)}" width="9" height="9" rx="2"/>`;
     if (mv.band === 'floor') out += seg(s.hN, [s.aN[0] + 4, -2], 2.5, 'band');
     else if (mv.band) out += seg(s.hN, mv.band, 2.5, 'band');
     if (mv.bandBetween) out += seg(s.hN, s.hF, 2.5, 'band');
     if (mv.cable) out += seg(s.hN, [s.hN[0] + 2, -190], 2, 'band');
     if (mv.poles) out += seg(s.hN, [s.hN[0] - 30, -1], 2.5, 'pole');
-    if (mv.platform) out += `<line class="prop-line" x1="${(s.tN[0]-18).toFixed(1)}" y1="${(s.tN[1]-14).toFixed(1)}" x2="${(s.tN[0]+10).toFixed(1)}" y2="${(s.tN[1]+22).toFixed(1)}" stroke-width="5"/>`;
+    if (mv.platform) out += `<line class="prop-line" x1="${f1(s.tN[0]-18)}" y1="${f1(s.tN[1]-14)}" x2="${f1(s.tN[0]+10)}" y2="${f1(s.tN[1]+22)}" stroke-width="5"/>`;
     return out;
   }
   const ease = t => .5 - Math.cos(Math.PI*t)/2;
@@ -131,13 +169,13 @@ const ANIM = (() => {
     if (u < 2*hold + d) return f[1];
     return blend(f[1], f[0], ease((u - 2*hold - d)/d));
   }
-  function frameSVG(name, levels, time){
+  function frameSVG(name, levels, time, g){
     const mv = M[name] || M.squat;
-    return `<g class="props">${(mv.props || []).join('')}</g><line class="ground" x1="-100" y1="0" x2="100" y2="0"/><g class="fig">${figure(poseAt(mv, time), zones(levels), mv)}</g>`;
+    return `<ellipse class="shadow" cx="0" cy="0" rx="70" ry="5"/><g class="props">${(mv.props || []).join('')}</g><line class="ground" x1="-100" y1="0" x2="100" y2="0"/><g class="fig">${figure(poseAt(mv, time), zones(levels), mv, g === 'w' ? 'w' : 'm')}</g>`;
   }
-  function svg(name, levels){
+  function svg(name, levels, g){
     const lv = JSON.stringify(levels || {}).replace(/"/g, '&quot;');
-    return `<svg class="anim" viewBox="-100 -190 200 200" data-anim="${name}" data-lv="${lv}" role="img" aria-label="Animation der Übung">${frameSVG(name, levels, .6)}</svg>`;
+    return `<svg class="anim" viewBox="-100 -190 200 200" data-anim="${name}" data-g="${g === 'w' ? 'w' : 'm'}" data-lv="${lv}" role="img" aria-label="Animation der Übung">${frameSVG(name, levels, .6, g)}</svg>`;
   }
   // Ein gemeinsamer Takt für alle sichtbaren Animationen (~30 Bilder pro Sekunde)
   let last = 0; const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
@@ -150,7 +188,7 @@ const ANIM = (() => {
       if (still && el.closest('.thumb, .routine')) return;
       const r = el.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;
       if (!el._lv) el._lv = JSON.parse(el.dataset.lv || '{}');
-      el.innerHTML = frameSVG(el.dataset.anim, el._lv, (now - t0)/1000);
+      el.innerHTML = frameSVG(el.dataset.anim, el._lv, (now - t0)/1000, el.dataset.g);
     });
   }
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(tick);
