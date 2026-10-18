@@ -168,8 +168,8 @@ function chart(c){
 }
 // Realistisches Körperbild mit Messringen (Position in % vom Bild: y, x-Mitte, Breite)
 const PHOTO_RINGS = {
-  m: {chest:[27,50,40], arm:[31,27,11], waist:[38,50,31], hip:[44,50,35], thigh:[52,41,17]},
-  w: {chest:[27,50,32], arm:[31,30,9], waist:[37,50,25], hip:[44,50,33], thigh:[52,42,15]}
+  m: {chest:[26,50,38], arm:[31,29,10], waist:[42,50,34], hip:[47,50,40], thigh:[56,39,19]},
+  w: {chest:[27,50,31], arm:[31,29,8], waist:[39,50,26], hip:[47,50,33], thigh:[56,41,16]}
 };
 function bodyPhoto(c, v){
   const g = c.p.gender === 'w' ? 'w' : 'm', R = PHOTO_RINGS[g];
