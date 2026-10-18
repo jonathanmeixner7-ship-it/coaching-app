@@ -23,7 +23,7 @@ function exMedia(e, lv){
   const have = PHOTOS[e.id] || [], g = have.includes(gender()) ? gender() : have[0];
   if (!g) return exMedia(e, lv);
   const src = n => `img/ex/${e.id}_${g}_${n}.jpg?v=1`;
-  return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><img src="${src(1)}" alt="" loading="lazy"><img class="b" src="${src(2)}" alt="" loading="lazy"></div>`;
+  return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><img src="${src(1)}" alt="" decoding="async"><img class="b" src="${src(2)}" alt="" decoding="async"></div>`;
 }
 const shortDate = d => new Date(d+'T12:00').toLocaleDateString('de-DE',{day:'numeric',month:'numeric'});
 
