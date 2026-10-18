@@ -94,14 +94,20 @@ function latestBody(c){ const v = {}, first = {}; for (const r of c.body) for (c
 
 // ---------- Bausteine ----------
 function ring(pct, size=96){ const r = size/2-9, C2 = 2*Math.PI*r; return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${pct} Prozent erledigt"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--line)" stroke-width="10"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C2*pct/100} ${C2}" transform="rotate(-90 ${size/2} ${size/2})"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="${size/4.4}">${pct}%</text></svg>`; }
-function head(c){ return `<div class="top"><div style="min-width:0"><div class="label">${esc(c.p.type_label)}</div><h1>Hallo ${esc(c.p.name || 'du')}</h1></div><button class="avatar" data-act="menu" aria-label="Abmelden">${esc((c.p.name||'?')[0].toUpperCase())}</button></div>`; }
+function head(c, title, label){ return `<div class="top"><div style="min-width:0"><div class="label">${esc(label || c.p.type_label)}</div><h1>${title ? esc(title) : 'Hallo ' + esc(c.p.name || 'du')}</h1></div><button class="avatar" data-act="menu" aria-label="Profil und Abmelden">${esc((c.p.name||'?')[0].toUpperCase())}</button></div>`; }
+// Drei Aktivitätsringe wie bei der Apple Watch: heute erledigt, Minuten der Woche, aktive Tage
+function rings3(vals, size = 132){
+  const cols = ['var(--ring1)','var(--ring2)','var(--ring3)'], w = 15, gap = 3;
+  return `<svg class="rings" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="Aktivitätsringe">${vals.map((v, i) => { const r = size/2 - w/2 - i*(w+gap), C2 = 2*Math.PI*r, p = Math.max(0, Math.min(1, v)); return `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${cols[i]}" stroke-opacity=".22" stroke-width="${w}"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${cols[i]}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${(C2*p).toFixed(1)} ${C2.toFixed(1)}" transform="rotate(-90 ${size/2} ${size/2})"/>`; }).join('')}</svg>`;
+}
+function activeDays(c){ return weekDates().filter(d => d <= today() && (dayStatus(c, d).done > 0 || (c.extras[iso(d)] || []).length)).length; }
 function strip(c){
   const T = today();
   return `<div class="strip">${weekDates().map(d => { const s = dayStatus(c,d); const cls = [iso(d) === iso(T) ? 'today' : '', d > T ? '' : s.total && s.done === s.total ? 'full' : s.done ? 'part' : '', s.total ? '' : 'rest'].join(' '); return `<div class="sd ${cls}">${DAYNAMES[dayKey(d)].slice(0,2)}<i>${d.getDate()}</i></div>`; }).join('')}</div>`;
 }
 function taskBtn(t, isDone){
   const hasEx = t.exercises.length > 0;
-  return `<button class="task ${isDone?'is-done':''}" data-act="${hasEx ? 'openitem' : 'toggle'}" data-id="${t.id}" aria-pressed="${isDone}"><span class="box"></span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min?`<span class="chip">${t.min} Min</span>`:''}${hasEx?`<span class="chip">${t.exercises.length} Übungen</span>`:''}${t.note?`<span class="small muted">${esc(t.note)}</span>`:''}</span></span>${hasEx && !isDone ? '<span class="go">START ›</span>' : ''}</button>`;
+  return `<button class="task ${isDone?'is-done':''}" data-act="${hasEx ? 'openitem' : 'toggle'}" data-id="${t.id}" aria-pressed="${isDone}"><span class="box"></span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min?`<span class="chip">${t.min} Min</span>`:''}${hasEx?`<span class="chip">${t.exercises.length} Übungen</span>`:''}${t.note?`<span class="small muted">${esc(t.note)}</span>`:''}</span></span>${hasEx && !isDone ? '<span class="go">Start</span>' : ''}</button>`;
 }
 function muscleChips(lv){ const hot = Object.keys(lv).filter(k => lv[k] >= 1), warm = Object.keys(lv).filter(k => lv[k] < 1); return `<div class="musclelist">${hot.map(k => `<span class="chip kraft">${BODY.NAMES[k]}</span>`).join('')}${warm.map(k => `<span class="chip">${BODY.NAMES[k]}</span>`).join('')}</div>`; }
 function routineCard(r){ const first = EXMAP[r.items[0][0]]; return `<div class="routine"><div class="row between" style="align-items:flex-start"><div class="label" style="color:var(--accent)">${r.min} Min · ${r.items.length} Übungen · ${r.ort === 'studio' ? 'Studio' : 'Zuhause'}</div><div class="mini">${exMedia(first, muscleLevels(r.items.map(i => i[0])))}</div></div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
@@ -118,15 +124,16 @@ function viewHeute(c){
   const due = open.length && (now.getHours() > rh || (now.getHours() === rh && now.getMinutes() >= rm));
   const lv = mergeLevels(items.map(itemMuscles));
   const home = ROUTINES.filter(r => r.ort === 'zuhause'), sugg = home[dayIdx(T) % home.length];
-  return `${head(c)}<div class="stack">
+  return `${head(c, null, DAYNAMES[dayKey(T)] + ', ' + T.toLocaleDateString('de-DE',{day:'numeric',month:'long'}))}<div class="stack">
   ${strip(c)}
   ${due ? `<div class="reminder"><b>Erinnerung:</b> ${open.map(t => esc(t.title)).join(', ')} ${open.length===1?'wartet':'warten'} noch auf dich.</div>` : ''}
-  <div class="card hi today-head">${ring(pct)}<div class="stack" style="gap:4px;min-width:0"><div class="label">${DAYNAMES[dayKey(T)]}, ${T.toLocaleDateString('de-DE',{day:'numeric',month:'long'})}</div><h2>${msg}</h2><div class="muted small">${streak(c)} ${streak(c) === 1 ? 'Tag' : 'Tage'} in Folge aktiv</div></div></div>
-  ${c.p.coach_note ? `<div class="coachmsg"><div class="label" style="color:var(--accent)">Nachricht von Jonathan</div><div>${esc(c.p.coach_note)}</div></div>` : ''}
-  <h2>Dein Programm heute</h2>
-  ${items.map(t => taskBtn(t, done.includes(t.id))).join('') || `<div class="card muted">${noPlan ? 'Jonathan erstellt gerade deinen persönlichen Plan.' : 'Für heute ist nichts geplant.'}</div>`}
-  ${Object.keys(lv).length ? `<div class="card stack"><div class="label">Heute trainiert</div>${BODY.pair(lv)}${muscleChips(lv)}</div>` : ''}
-  <div class="stack" style="gap:10px"><h2>${items.length ? 'Lust auf mehr?' : 'Für deinen freien Tag'}</h2>${routineCard(sugg)}<button class="btn link" data-tab="uebungen">Alle Übungen und Programme ansehen</button></div>
+  <div class="card today-head">${rings3([pct/100, weekMinutes(c)/150, activeDays(c)/7])}<div class="ringlegend"><div class="lg"><span style="color:var(--ring1)">Heute</span><b>${pct}<small> %</small></b></div><div class="lg"><span style="color:var(--ring2)">Bewegung</span><b>${weekMinutes(c)}<small>/150 Min</small></b></div><div class="lg"><span style="color:var(--ring3)">Aktive Tage</span><b>${activeDays(c)}<small>/7</small></b></div></div></div>
+  <div class="small muted" style="padding-inline:4px">${msg} · ${streak(c)} ${streak(c) === 1 ? 'Tag' : 'Tage'} in Folge aktiv</div>
+  ${c.p.coach_note ? `<div class="coachmsg"><span class="avatar">J</span><div style="min-width:0"><div class="small" style="font-weight:600">Jonathan</div><div>${esc(c.p.coach_note)}</div></div></div>` : ''}
+  <div class="section"><h2>Dein Programm</h2><span class="small muted">${items.length} ${items.length === 1 ? 'Einheit' : 'Einheiten'}</span></div>
+  ${items.length ? `<div class="list">${items.map(t => taskBtn(t, done.includes(t.id))).join('')}</div>` : `<div class="card muted">${noPlan ? 'Jonathan erstellt gerade deinen persönlichen Plan.' : 'Für heute ist nichts geplant.'}</div>`}
+  ${Object.keys(lv).length ? `<div class="section"><h2>Heute trainiert</h2></div><div class="card stack">${BODY.pair(lv)}${muscleChips(lv)}</div>` : ''}
+  <div class="section"><h2>${items.length ? 'Lust auf mehr?' : 'Für deinen freien Tag'}</h2><button class="btn link" data-tab="uebungen">Alle</button></div>${routineCard(sugg)}
   ${ex.length ? `<div class="card stack" style="gap:8px"><div class="label">Extra heute</div>${ex.map(x => `<div class="row between"><span>${esc(x.title)}</span><span class="row" style="gap:6px"><span class="chip">${x.min} Min</span><button class="btn link" style="color:var(--danger)" data-act="delextra" data-id="${x.id}">Löschen</button></span></div>`).join('')}</div>` : ''}
   <details class="card"><summary style="font-weight:700;cursor:pointer;min-height:28px">+ Eigene Extra-Einheit eintragen</summary>
    <form class="stack sheet" data-form="extra" style="margin-top:12px"><div class="formrow"><label class="field"><span class="small muted">Was hast du gemacht?</span><input id="exTitle" required maxlength="80" placeholder="z. B. Schwimmen, Wandern"></label><label class="field" style="flex:0 0 110px"><span class="small muted">Minuten</span><input id="exMin" type="number" min="1" max="600" value="30" required></label></div><button class="btn">Speichern</button></form></details>
@@ -135,11 +142,11 @@ function viewHeute(c){
 }
 function viewWoche(c){
   const wd = weekDates();
-  return `${head(c)}<div class="stack">
+  return `${head(c, 'Woche')}<div class="stack">
   <div class="stats"><div class="stat"><b>${weekRate(c)}%</b><span class="small muted">erledigt</span></div><div class="stat"><b>${weekMinutes(c)}</b><span class="small muted">aktive Min.</span></div><div class="stat"><b>${streak(c)}</b><span class="small muted">Tage Serie</span></div></div>
   ${strip(c)}
   <div class="card daylist">${wd.map(d => { const items = c.plan[dayKey(d)] || [], done = c.done[iso(d)] || []; return `<div class="dayline"><div style="min-width:0"><b>${DAYNAMES[dayKey(d)]}</b><div class="small muted">${items.map(t => (done.includes(t.id)?'✓ ':'') + esc(t.title) + (t.exercises.length ? ` (${t.exercises.length} Übungen)` : '')).join(' · ') || 'Ruhetag'}</div></div><span class="small muted" style="flex:none">${items.length ? items.reduce((a,t) => a+(t.min||0), 0) + ' Min' : ''}</span></div>`; }).join('')}</div>
-  <div class="card stack"><div class="label">Muskeln diese Woche</div>${BODY.pair(mergeLevels(DAYS.flatMap(k => c.plan[k].map(itemMuscles))))}</div>
+  <div class="section"><h2>Muskeln diese Woche</h2></div><div class="card stack">${BODY.pair(mergeLevels(DAYS.flatMap(k => c.plan[k].map(itemMuscles))))}</div>
   </div>`;
 }
 function viewUebungen(c){
@@ -147,15 +154,15 @@ function viewUebungen(c){
   const list = EX.filter(e => e.id !== 'ems').filter(e => exFilter === 'alle' ? true : exFilter === 'mobility' || exFilter === 'ausdauer' ? e.kat === exFilter : e.ort === exFilter || e.ort === 'beides')
                  .filter(e => !muscleSel || e.m.includes(muscleSel) || e.s.includes(muscleSel));
   const lv = muscleSel ? {[muscleSel]: 1} : {};
-  return `${head(c)}<div class="stack">
-  <h2>Programme für zuhause</h2>
+  return `${head(c, 'Übungen')}<div class="stack">
+  <div class="section"><h2>Für zuhause</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'zuhause').length} Programme</span></div>
   <div class="routines">${ROUTINES.filter(r => r.ort === 'zuhause').map(routineCard).join('')}</div>
-  <h2>Programme fürs Studio</h2>
+  <div class="section"><h2>Im Studio</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'studio').length} Programme</span></div>
   <div class="routines">${ROUTINES.filter(r => r.ort === 'studio').map(routineCard).join('')}</div>
-  <h2>Übungen</h2>
+  <div class="section"><h2>Alle Übungen</h2><span class="small muted">${list.length}</span></div>
   <div class="card stack"><div class="label">${muscleSel ? 'Übungen für: ' + BODY.NAMES[muscleSel] : 'Tipp auf einen Muskel'}</div>${BODY.pair(lv, {clickable:true})}${muscleSel ? '<button class="btn ghost" data-act="musclereset">Alle Muskeln zeigen</button>' : ''}</div>
   <div class="filters">${FILTERS.map(([k,l]) => `<button class="fchip" data-act="exfilter" data-id="${k}" aria-pressed="${exFilter===k}">${l}</button>`).join('')}</div>
-  <div class="stack" style="gap:10px">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
+  <div class="exlist">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
   <p class="credit">Übungen und Grafiken von Jonathan Coaching. Bei Schmerzen abbrechen und mit Jonathan sprechen.</p>
   </div>`;
 }
@@ -206,7 +213,7 @@ function viewKoerper(c){
    <div>${pct >= 100 ? '<b>Ziel erreicht!</b> Zeit für ein neues mit Jonathan.' : `<b>${pct}% geschafft.</b> Noch ${fmt(diff)} ${esc(g.unit)} bis zum Ziel.`}</div>${chart(c)}
    <form class="stack sheet" data-form="measure"><label class="field"><span class="small muted">Neuer Wert in ${esc(g.unit)}</span><input id="mVal" type="text" inputmode="decimal" required placeholder="${fmt(cur)}"></label><button class="btn">Eintragen</button></form></div>`;
   }
-  return `${head(c)}<div class="stack">${goalHtml}${bodyCard(c, false)}</div>`;
+  return `${head(c, 'Körper')}<div class="stack">${goalHtml}${bodyCard(c, false)}</div>`;
 }
 function badgesFor(c){
   const {pct} = goalPct(c), st = streak(c), ex = Object.values(c.extras).flat().length, aus = countDone(c,'ausdauer'), all = countDone(c);
@@ -222,7 +229,7 @@ function badgesFor(c){
 }
 function viewErfolge(c){
   const b = badgesFor(c), n = b.filter(x => x.got).length;
-  return `${head(c)}<div class="stack"><div class="card hi"><div class="label">Kleine Erfolge</div><h2>${n} von ${b.length} gesammelt</h2><p class="muted" style="margin:6px 0 0">Jeder Haken zählt. ${countDone(c)} Einheiten hast du in den letzten Wochen geschafft.</p></div>
+  return `${head(c, 'Erfolge')}<div class="stack"><div class="card"><div class="label">Kleine Erfolge</div><h2>${n} von ${b.length} gesammelt</h2><p class="muted" style="margin:6px 0 0">Jeder Haken zählt. ${countDone(c)} Einheiten hast du in den letzten Wochen geschafft.</p></div>
   <div class="badges">${b.map(x => `<div class="badge ${x.got?'got':''}"><span class="medal">${x.m}</span><b>${esc(x.t)}</b><span class="small muted">${esc(x.d)}</span></div>`).join('')}</div>
   <button class="btn ghost" data-act="logout">Abmelden</button></div>`;
 }
