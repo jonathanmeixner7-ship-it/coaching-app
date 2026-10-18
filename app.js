@@ -32,7 +32,7 @@ let C = null;                        // geladener Kunde
 let roster = [];                     // Coach: alle Kunden mit Daten
 let codes = [];                      // Coach: Einladungscodes
 let tab = 'heute', coachSel = null, coachEx = null, authMode = 'login', authMsg = '', busy = false;
-let exFilter = 'alle', muscleSel = null;
+let exFilter = 'alle', muscleSel = null, preview = false;
 let OV = null;                       // offenes Vollbild: {type:'ex', id} | {type:'workout', …} | {type:'summary', …}
 let timer = null;                    // {mode:'rest'|'work', end, total, onDone}
 
@@ -327,6 +327,7 @@ function viewCoachEdit(c){
   const p = c.p;
   return `<div class="top"><button class="btn ghost" data-act="coachback">← Kunden</button><span class="avatar">${esc((p.name||'?')[0].toUpperCase())}</span></div>
   <div class="stack"><h1>${esc(p.name)}</h1>
+  <button class="btn" data-act="startpreview" data-id="${p.id}">App als ${esc(p.name)} ansehen</button>
   <div class="stats"><div class="stat"><b>${weekRate(c)}%</b><span class="small muted">diese Woche</span></div><div class="stat"><b>${weekMinutes(c)}</b><span class="small muted">aktive Min.</span></div><div class="stat"><b>${streak(c)}</b><span class="small muted">Tage Serie</span></div></div>
   <form class="card stack" data-form="note"><div class="label">Nachricht an ${esc(p.name)}</div><textarea id="noteTxt" rows="3" maxlength="500">${esc(p.coach_note)}</textarea><button class="btn">Nachricht speichern</button></form>
   <div class="card stack"><div class="label">Wochenplan</div>${DAYS.map(k => `<div class="stack" style="gap:6px"><b>${DAYNAMES[k]}</b>${c.plan[k].map(t => `<div style="border:1px solid var(--line);border-radius:12px;padding:8px 10px"><div class="row between" style="flex-wrap:wrap"><span style="min-width:0">${esc(t.title)} <span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min?` <span class="chip">${t.min} Min</span>`:''}</span><span class="row" style="gap:4px"><button class="btn link" data-act="exedit" data-id="${t.id}">Übungen (${t.exercises.length})</button><button class="btn link" style="color:var(--danger)" data-act="delitem" data-id="${t.id}">Entfernen</button></span></div>${coachEx && coachEx.id === t.id ? exEditor(coachEx) : ''}</div>`).join('') || '<span class="small muted">Ruhetag</span>'}</div>`).join('')}</div>
@@ -374,9 +375,9 @@ function render(){
   tabs.hidden = true;
   if (!session) { app.innerHTML = viewAuth(); return; }
   if (!me) { app.innerHTML = '<div class="loading">Lädt …</div>'; return; }
-  if (me.role === 'coach') { app.innerHTML = viewCoach(); return; }
-  if (me.role !== 'client' || !C) { app.innerHTML = viewPending(); return; }
-  app.innerHTML = ({heute:viewHeute, woche:viewWoche, uebungen:viewUebungen, koerper:viewKoerper, erfolge:viewErfolge})[tab](C);
+  if (me.role === 'coach' && !preview) { app.innerHTML = viewCoach(); return; }
+  if ((me.role !== 'client' && !preview) || !C) { app.innerHTML = viewPending(); return; }
+  app.innerHTML = (preview ? `<div class="reminder row between" style="margin-top:8px"><span><b>Vorschau:</b> So sieht ${esc(C.p.name)} die App.</span><button class="btn ghost" style="min-height:40px;padding:6px 12px" data-act="endpreview">Zurück</button></div>` : '') + ({heute:viewHeute, woche:viewWoche, uebungen:viewUebungen, koerper:viewKoerper, erfolge:viewErfolge})[tab](C);
   tabs.hidden = false;
   document.getElementById('tabsIn').innerHTML = Object.entries(TABS).map(([k,[l,ic]]) => `<button class="tab" data-tab="${k}" ${k===tab?'aria-current="page"':''}><svg viewBox="0 0 24 24">${ic}</svg>${l}</button>`).join('');
 }
@@ -400,6 +401,9 @@ document.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act, id = b.dataset.id;
   try {
+    if (a === 'startpreview') { C = roster.find(x => x.p.id === id); preview = true; tab = 'heute'; render(); scrollTo(0,0); return; }
+    if (a === 'endpreview') { preview = false; C = null; closeOverlay(); render(); scrollTo(0,0); return; }
+    if (preview && ['toggle','finish','quickdone','delextra'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
     // Vollbild
     if (a === 'openex') { OV = {type:'ex', id}; openOverlay(); return; }
     if (a === 'exinfo') { OV.back = {...OV}; const back = OV.back; OV = {type:'ex', id, back}; renderOverlay(); document.getElementById('ov').scrollTop = 0; return; }
@@ -421,7 +425,7 @@ document.addEventListener('click', async e => {
     if (a === 'musclereset') { muscleSel = null; }
     // Anmeldung und Kunde
     if (a === 'mode') { authMode = b.dataset.mode; authMsg = ''; }
-    if (a === 'menu') { if (me.role === 'coach') { scrollTo(0, document.body.scrollHeight); return; } tab = 'erfolge'; render(); scrollTo(0, document.body.scrollHeight); toast('Abmelden findest du unten'); return; }
+    if (a === 'menu') { if (preview) { preview = false; C = null; render(); return; } if (me.role === 'coach') { scrollTo(0, document.body.scrollHeight); return; } tab = 'erfolge'; render(); scrollTo(0, document.body.scrollHeight); toast('Abmelden findest du unten'); return; }
     if (a === 'logout') { await sb.auth.signOut(); session = null; me = null; C = null; roster = []; coachSel = null; tab = 'heute'; }
     if (a === 'reload') { await boot(); return; }
     if (a === 'toggle') {
@@ -454,6 +458,7 @@ document.addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target.dataset.form, v = id => document.getElementById(id).value.trim();
   const y = scrollY;
+  if (preview && ['extra','measure','body'].includes(f)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
   try {
     if (f === 'auth') {
       busy = true; authMsg = ''; const mail = v('uMail'), pass = document.getElementById('uPass').value;
@@ -487,6 +492,7 @@ document.addEventListener('submit', async e => {
 });
 document.addEventListener('change', async e => {
   if (e.target.id !== 'remTime' || !e.target.value) return;
+  if (preview) { toast('Vorschau: hier wird nichts gespeichert'); return; }
   try { await q(sb.from('profiles').update({reminder: e.target.value}).eq('id', me.id)); C.p.reminder = e.target.value; toast('Erinnerung auf ' + e.target.value + ' Uhr gestellt'); render(); } catch (err) { fail(err); }
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && me && me.role === 'client' && C && !OV) render(); });
