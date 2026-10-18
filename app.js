@@ -156,10 +156,10 @@ function viewUebungen(c){
                  .filter(e => !muscleSel || e.m.includes(muscleSel) || e.s.includes(muscleSel));
   const lv = muscleSel ? {[muscleSel]: 1} : {};
   return `${head(c, 'Übungen')}<div class="stack">
-  <div class="section"><h2>Für zuhause</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'zuhause').length} Programme</span></div>
-  <div class="routines">${ROUTINES.filter(r => r.ort === 'zuhause').map(routineCard).join('')}</div>
-  <div class="section"><h2>Im Studio</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'studio').length} Programme</span></div>
-  <div class="routines">${ROUTINES.filter(r => r.ort === 'studio').map(routineCard).join('')}</div>
+  <div class="section"><h2>Für zuhause</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'zuhause' && !r.nurCoach).length} Programme</span></div>
+  <div class="routines">${ROUTINES.filter(r => r.ort === 'zuhause' && !r.nurCoach).map(routineCard).join('')}</div>
+  <div class="section"><h2>Im Studio</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'studio' && !r.nurCoach).length} Programme</span></div>
+  <div class="routines">${ROUTINES.filter(r => r.ort === 'studio' && !r.nurCoach).map(routineCard).join('')}</div>
   <div class="section"><h2>Alle Übungen</h2><span class="small muted">${list.length}</span></div>
   <div class="card stack"><div class="label">${muscleSel ? 'Übungen für: ' + BODY.NAMES[muscleSel] : 'Tipp auf einen Muskel'}</div>${BODY.pair(lv, {clickable:true})}${muscleSel ? '<button class="btn ghost" data-act="musclereset">Alle Muskeln zeigen</button>' : ''}</div>
   <div class="filters">${FILTERS.map(([k,l]) => `<button class="fchip" data-act="exfilter" data-id="${k}" aria-pressed="${exFilter===k}">${l}</button>`).join('')}</div>
@@ -323,12 +323,17 @@ function viewCoach(){
   <div class="card stack"><div class="label">Link für Kunden</div><div style="word-break:break-all"><b>${esc(location.origin + location.pathname)}</b></div><button class="btn ghost" data-act="copylink">Link kopieren</button></div>
   <button class="btn ghost" data-act="logout">Abmelden</button></div>`;
 }
-const exOptions = () => Object.entries(KAT).map(([k,l]) => `<optgroup label="${l}">${EX.filter(e => e.kat === k).map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>`).join('');
+// Übungsauswahl für den Coach, nach Körperbereich sortiert
+const AREA_OF = {brust:'Brust', latissimus:'Rücken', ruecken_oben:'Rücken', unterer_ruecken:'Rücken', schultern:'Schultern', bizeps:'Arme', trizeps:'Arme', unterarme:'Arme', oberschenkel_vorne:'Beine & Po', oberschenkel_hinten:'Beine & Po', po:'Beine & Po', waden:'Beine & Po', bauch:'Bauch & Rumpf', seitlich:'Bauch & Rumpf'};
+const AREAS = ['Brust','Rücken','Schultern','Arme','Beine & Po','Bauch & Rumpf','Beweglichkeit','Ausdauer','EMS'];
+const areaOf = e => e.kat === 'mobility' ? 'Beweglichkeit' : e.kat === 'ausdauer' ? 'Ausdauer' : e.kat === 'ems' ? 'EMS' : AREA_OF[e.m[0]] || 'Bauch & Rumpf';
+const exOptions = () => AREAS.map(a => { const list = EX.filter(e => areaOf(e) === a).sort((x, y) => x.name.localeCompare(y.name, 'de')); return list.length ? `<optgroup label="${a}">${list.map(e => `<option value="${e.id}">${esc(e.name)}${e.ort === 'studio' ? ' · Studio' : ''}</option>`).join('')}</optgroup>` : ''; }).join('');
+const routineOptions = () => `<optgroup label="5-Tage-Split">${ROUTINES.filter(r => r.nurCoach).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</optgroup><optgroup label="Programme">${ROUTINES.filter(r => !r.nurCoach).map(r => `<option value="${r.id}">${esc(r.name)} (${r.min} Min)</option>`).join('')}</optgroup>`;
 function exEditor(t){
   return `<div class="stack sheet" style="gap:8px">
    ${t.exercises.map((x, i) => `<div class="row" style="flex-wrap:wrap;gap:6px"><span style="flex:1;min-width:140px">${esc(EXMAP[x.ex]?.name || x.ex)}</span><input data-exsets="${i}" type="number" min="1" max="10" value="${x.sets}" style="width:64px" aria-label="Sätze"><input data-exreps="${i}" value="${esc(x.reps)}" style="width:110px" aria-label="Wiederholungen"><button class="btn link" style="color:var(--danger)" data-act="exdel" data-id="${i}">✕</button></div>`).join('') || '<span class="small muted">Noch keine Übungen.</span>'}
    <div class="formrow"><select id="exAdd" style="flex:2;min-width:170px">${exOptions()}</select><button class="btn ghost" data-act="exadd">+ Übung</button></div>
-   <div class="formrow"><select id="exRoutine" style="flex:2;min-width:170px">${ROUTINES.map(r => `<option value="${r.id}">Vorlage: ${esc(r.name)}</option>`).join('')}</select><button class="btn ghost" data-act="exroutine">Einsetzen</button></div>
+   <div class="formrow"><select id="exRoutine" style="flex:2;min-width:170px">${routineOptions()}</select><button class="btn ghost" data-act="exroutine">Einsetzen</button></div>
    <button class="btn" data-act="exsave" data-id="${t.id}">Übungen speichern</button></div>`;
 }
 function viewCoachEdit(c){
@@ -338,11 +343,12 @@ function viewCoachEdit(c){
   <button class="btn" data-act="startpreview" data-id="${p.id}">App als ${esc(p.name)} ansehen</button>
   <div class="stats"><div class="stat"><b>${weekRate(c)}%</b><span class="small muted">diese Woche</span></div><div class="stat"><b>${weekMinutes(c)}</b><span class="small muted">aktive Min.</span></div><div class="stat"><b>${streak(c)}</b><span class="small muted">Tage Serie</span></div></div>
   <form class="card stack" data-form="note"><div class="label">Nachricht an ${esc(p.name)}</div><textarea id="noteTxt" rows="3" maxlength="500">${esc(p.coach_note)}</textarea><button class="btn">Nachricht speichern</button></form>
+  <div class="card stack"><div class="label">Fertiger Trainingsplan</div><p class="small muted" style="margin:0">Legt den 5-Tage-Split komplett an: Mo Brust + Rücken, Di Beine + Rumpf, Mi Schultern + Arme, Fr Oberkörper, Sa Unterkörper – mit allen Übungen, Sätzen und Wiederholungen. Danach kannst du alles einzeln anpassen.</p><button class="btn ghost" data-act="addsplit">5-Tage-Split anlegen</button></div>
   <div class="card stack"><div class="label">Wochenplan</div>${DAYS.map(k => `<div class="stack" style="gap:6px"><b>${DAYNAMES[k]}</b>${c.plan[k].map(t => `<div style="border:1px solid var(--line);border-radius:12px;padding:8px 10px"><div class="row between" style="flex-wrap:wrap"><span style="min-width:0">${esc(t.title)} <span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min?` <span class="chip">${t.min} Min</span>`:''}</span><span class="row" style="gap:4px"><button class="btn link" data-act="exedit" data-id="${t.id}">Übungen (${t.exercises.length})</button><button class="btn link" style="color:var(--danger)" data-act="delitem" data-id="${t.id}">Entfernen</button></span></div>${coachEx && coachEx.id === t.id ? exEditor(coachEx) : ''}</div>`).join('') || '<span class="small muted">Ruhetag</span>'}</div>`).join('')}</div>
   <form class="card stack" data-form="add"><div class="label">Einheit hinzufügen</div>
    <label class="field"><span class="small muted">Was?</span><input id="aTitle" required maxlength="80" placeholder="z. B. Rücken-Fit zuhause"></label>
    <div class="formrow"><label class="field"><span class="small muted">Tag</span><select id="aDay">${DAYS.map((k,i) => `<option value="${i}">${DAYNAMES[k]}</option>`).join('')}</select></label><label class="field"><span class="small muted">Art</span><select id="aKind">${Object.entries(KINDS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select></label><label class="field" style="flex:0 0 100px"><span class="small muted">Minuten</span><input id="aMin" type="number" min="0" value="30"></label></div>
-   <label class="field"><span class="small muted">Übungen aus Vorlage (optional)</span><select id="aRoutine"><option value="">Keine – später einzeln hinzufügen</option>${ROUTINES.map(r => `<option value="${r.id}">${esc(r.name)} (${r.min} Min)</option>`).join('')}</select></label>
+   <label class="field"><span class="small muted">Übungen aus Vorlage (optional)</span><select id="aRoutine"><option value="">Keine – später einzeln hinzufügen</option>${routineOptions()}</select></label>
    <label class="field"><span class="small muted">Hinweis (optional)</span><input id="aNote" maxlength="120" placeholder="z. B. lockeres Tempo"></label>
    <button class="btn">Hinzufügen</button></form>
   ${bodyCard(c, true)}
@@ -449,6 +455,7 @@ document.addEventListener('click', async e => {
     if (a === 'coachsel') { coachSel = id; coachEx = null; render(); scrollTo(0,0); return; }
     if (a === 'coachback') { coachSel = null; coachEx = null; await loadRoster(); }
     if (a === 'delitem') { await q(sb.from('plan_items').delete().eq('id', id)); await refreshCoachClient(coachSel); toast('Einheit entfernt'); }
+    if (a === 'addsplit') { if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Wirklich anlegen? Nochmal tippen'; return; } const days = [['split_a',0],['split_b',1],['split_c',2],['split_d',4],['split_e',5]]; const rows = days.map(([rid, wd]) => { const r = ROUTINES.find(x => x.id === rid); return {client_id: coachSel, weekday: wd, title: r.name.replace('Split ', ''), kind: 'kraft', minutes: r.min, note: '', exercises: routineItems(rid)}; }); await q(sb.from('plan_items').insert(rows)); await refreshCoachClient(coachSel); toast('5-Tage-Split angelegt'); }
     if (a === 'exedit') { if (coachEx && coachEx.id === id) coachEx = null; else { const c = roster.find(x => x.p.id === coachSel); let t; for (const k of DAYS) t = t || c.plan[k].find(x => x.id === id); coachEx = {id, exercises: t.exercises.map(x => ({...x}))}; } }
     if (a === 'exadd') { readExEditor(); const ex = EXMAP[document.getElementById('exAdd').value]; coachEx.exercises.push({ex: ex.id, sets: ex.sets, reps: ex.reps}); }
     if (a === 'exroutine') { readExEditor(); coachEx.exercises.push(...routineItems(document.getElementById('exRoutine').value)); }
