@@ -21,7 +21,7 @@ const gender = () => (C && C.p && C.p.gender) || 'm';
 // Übung vormachen: Foto-Überblendung, wenn vorhanden (passende Figur, sonst die andere), sonst animiertes Männchen
 function exMedia(e, lv){
   const have = PHOTOS[e.id] || [], g = have.includes(gender()) ? gender() : have[0];
-  if (!g) return exMedia(e, lv);
+  if (!g) return ANIM.svg(e.anim, lv, gender());
   const src = n => `img/ex/${e.id}_${g}_${n}.jpg?v=1`;
   return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><img src="${src(1)}" alt="" decoding="async"><img class="b" src="${src(2)}" alt="" decoding="async"></div>`;
 }
