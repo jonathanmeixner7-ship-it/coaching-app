@@ -113,7 +113,7 @@ function viewHeute(c){
   return `${head(c)}<div class="stack">
   ${strip(c)}
   ${due ? `<div class="reminder"><b>Erinnerung:</b> ${open.map(t => esc(t.title)).join(', ')} ${open.length===1?'wartet':'warten'} noch auf dich.</div>` : ''}
-  <div class="card hi today-head">${ring(pct)}<div class="stack" style="gap:4px;min-width:0"><div class="label">${DAYNAMES[dayKey(T)]}, ${T.toLocaleDateString('de-DE',{day:'numeric',month:'long'})}</div><h2>${msg}</h2><div class="muted small">${streak(c)} Tage in Folge aktiv</div></div></div>
+  <div class="card hi today-head">${ring(pct)}<div class="stack" style="gap:4px;min-width:0"><div class="label">${DAYNAMES[dayKey(T)]}, ${T.toLocaleDateString('de-DE',{day:'numeric',month:'long'})}</div><h2>${msg}</h2><div class="muted small">${streak(c)} ${streak(c) === 1 ? 'Tag' : 'Tage'} in Folge aktiv</div></div></div>
   ${c.p.coach_note ? `<div class="coachmsg"><div class="label" style="color:var(--accent)">Nachricht von Jonathan</div><div>${esc(c.p.coach_note)}</div></div>` : ''}
   <h2>Dein Programm heute</h2>
   ${items.map(t => taskBtn(t, done.includes(t.id))).join('') || `<div class="card muted">${noPlan ? 'Jonathan erstellt gerade deinen persönlichen Plan.' : 'Für heute ist nichts geplant.'}</div>`}
