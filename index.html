@@ -17,7 +17,7 @@
 /* Layout: eine Handy-Spalte (max 560px) im Stil von Apple Fitness/Health – große Titel, gruppierte Listen, Aktivitätsringe, Milchglas-Tab-Leiste. Hell und dunkel nach Handy-Einstellung. */
 :root{
   --bg:#F2F2F7; --card:#FFFFFF; --card2:#F2F2F7; --fill:rgba(120,120,128,.12); --fg:#000000; --muted:#8A8A8E; --line:rgba(60,60,67,.14);
-  --tint:#1F9D48; --on-tint:#FFFFFF; --tint-soft:rgba(52,199,89,.14); --accent:#34C759; --warm:#FF7A1A; --warm-soft:rgba(255,149,0,.14); --danger:#FF3B30; --done:#34C759;
+  --tint:#C8102E; --on-tint:#FFFFFF; --tint-soft:rgba(200,16,46,.10); --accent:#E0283A; --warm:#FF7A1A; --warm-soft:rgba(255,149,0,.14); --danger:#FF3B30; --done:#34C759;
   --ring1:#FA114F; --ring2:#4CD964; --ring3:#1EC8D8;
   --sil:#E3E3E8; --muscle:#CFCFD6; --muscle-warm:#A9E3B8; --fig-near:#9C9CA4; --fig-far:#CBCBD1; --fig-hl:.32; --glass:rgba(249,249,251,.8);
   --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);
@@ -28,12 +28,12 @@
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#000000; --card:#1C1C1E; --card2:#2C2C2E; --fill:rgba(120,120,128,.24); --fg:#FFFFFF; --muted:#8E8E93; --line:rgba(84,84,88,.6);
-  --tint:#30D158; --on-tint:#00210A; --tint-soft:rgba(48,209,88,.16); --accent:#30D158; --warm:#FF9F0A; --warm-soft:rgba(255,159,10,.16); --danger:#FF453A; --done:#30D158;
+  --tint:#FF4D5E; --on-tint:#FFFFFF; --tint-soft:rgba(255,77,94,.16); --accent:#FF3B4D; --warm:#FF9F0A; --warm-soft:rgba(255,159,10,.16); --danger:#FF453A; --done:#30D158;
   --sil:#2C2C2E; --muscle:#3A3A3C; --muscle-warm:#1F6B35; --fig-near:#6C6C72; --fig-far:#3A3A3C; --fig-hl:.14; --glass:rgba(22,22,24,.78);
   --shadow:none; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --card:#1C1C1E; --card2:#2C2C2E; --fill:rgba(120,120,128,.24); --fg:#FFFFFF; --muted:#8E8E93; --line:rgba(84,84,88,.6);
-  --tint:#30D158; --on-tint:#00210A; --tint-soft:rgba(48,209,88,.16); --accent:#30D158; --warm:#FF9F0A; --warm-soft:rgba(255,159,10,.16); --danger:#FF453A; --done:#30D158;
+  --tint:#FF4D5E; --on-tint:#FFFFFF; --tint-soft:rgba(255,77,94,.16); --accent:#FF3B4D; --warm:#FF9F0A; --warm-soft:rgba(255,159,10,.16); --danger:#FF453A; --done:#30D158;
   --sil:#2C2C2E; --muscle:#3A3A3C; --muscle-warm:#1F6B35; --fig-near:#6C6C72; --fig-far:#3A3A3C; --fig-hl:.14; --glass:rgba(22,22,24,.78);
   --shadow:none; color-scheme:dark}
 *{box-sizing:border-box}
@@ -71,7 +71,7 @@ details summary{color:var(--tint);font-weight:500;list-style:none} details summa
 /* Kopf: großer Titel wie in iOS */
 .top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-block:14px 12px}
 .top .label{margin-bottom:2px}
-.avatar{flex:none;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#34C759,#1EC8D8);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:1rem;border:0}
+.avatar{flex:none;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#FF3B44,#8B0016);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:1rem;border:0}
 
 /* Wochenleiste */
 .strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:var(--card);border-radius:22px;padding:12px 8px;box-shadow:var(--shadow)}
@@ -177,8 +177,8 @@ svg.anim line{stroke-linecap:round}
 svg.anim .ground{stroke:var(--line);stroke-width:2}
 svg.anim .shadow{fill:#000;opacity:.12}
 svg.anim .near .sk{fill:var(--fig-near)} svg.anim .far .sk{fill:var(--fig-far)}
-svg.anim .near.warm .sk{fill:#52C878} svg.anim .far.warm .sk{fill:#2E8B4E}
-svg.anim .near.hot .sk{fill:var(--accent)} svg.anim .far.hot .sk{fill:#1F8A42}
+svg.anim .near.warm .sk{fill:#FF8A8A} svg.anim .far.warm .sk{fill:#B34A52}
+svg.anim .near.hot .sk{fill:var(--accent)} svg.anim .far.hot .sk{fill:#9E1426}
 svg.anim .hl{stroke:#fff;opacity:var(--fig-hl)}
 svg.anim .hair{fill:#3A2E28}
 svg.anim .prop{fill:var(--fill)} svg.anim .prop-line{fill:none;stroke:var(--muted);stroke-width:4;opacity:.6}
@@ -247,8 +247,8 @@ svg.anim .weight{fill:var(--warm)} svg.anim .band{stroke:var(--warm)} svg.anim .
 .bodyphoto{position:relative;border-radius:20px;overflow:hidden;background:radial-gradient(ellipse at 50% 90%,#2a3033,#141718 70%);aspect-ratio:896/1776;max-height:560px;margin:0 auto;width:100%;max-width:300px}
 .bodyphoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .bodyphoto.noimg img{display:none}
-.pring{position:absolute;height:3.2%;margin-top:-1.6%;border:2px solid rgba(48,209,88,.35);border-radius:50%}
-.pring.on{border-color:#30D158;box-shadow:0 0 12px rgba(48,209,88,.7),inset 0 0 6px rgba(48,209,88,.5)}
+.pring{position:absolute;height:3.2%;margin-top:-1.6%;border:2px solid rgba(255,59,77,.35);border-radius:50%}
+.pring.on{border-color:#FF3B4D;box-shadow:0 0 12px rgba(255,59,77,.75),inset 0 0 6px rgba(255,59,77,.5)}
 .plabel{position:absolute;transform:translateY(-50%);background:rgba(28,28,30,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:12px;padding:4px 9px;font-size:.6875rem;line-height:1.15;display:flex;flex-direction:column}
 .plabel b{font-family:var(--display);font-size:.9375rem;font-weight:700}
 .plabel.l{left:6px} .plabel.r{right:6px} .plabel.fat{left:6px}
@@ -261,9 +261,9 @@ svg.anim .weight{fill:var(--warm)} svg.anim .band{stroke:var(--warm)} svg.anim .
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=21"></script>
-<script src="anim.js?v=21"></script>
-<script src="exercises.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="body.js?v=22"></script>
+<script src="anim.js?v=22"></script>
+<script src="exercises.js?v=22"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>
