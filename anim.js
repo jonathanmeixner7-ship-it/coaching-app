@@ -144,8 +144,10 @@ const ANIM = (() => {
   const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   function tick(now){
     requestAnimationFrame(tick);
-    if (still || now - last < 33) return; last = now;
+    if (now - last < 33) return; last = now;
+    // Bei „Bewegung reduzieren“ laufen nur die erklärenden großen Animationen, Vorschaubilder bleiben ruhig
     document.querySelectorAll('svg.anim[data-anim]').forEach(el => {
+      if (still && el.closest('.thumb, .routine')) return;
       const r = el.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;
       if (!el._lv) el._lv = JSON.parse(el.dataset.lv || '{}');
       el.innerHTML = frameSVG(el.dataset.anim, el._lv, (now - t0)/1000);
