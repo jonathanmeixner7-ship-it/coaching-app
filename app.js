@@ -110,7 +110,7 @@ function taskBtn(t, isDone){
   return `<button class="task ${isDone?'is-done':''}" data-act="${hasEx ? 'openitem' : 'toggle'}" data-id="${t.id}" aria-pressed="${isDone}"><span class="box"></span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min?`<span class="chip">${t.min} Min</span>`:''}${hasEx?`<span class="chip">${t.exercises.length} Übungen</span>`:''}${t.note?`<span class="small muted">${esc(t.note)}</span>`:''}</span></span>${hasEx && !isDone ? '<span class="go">Start</span>' : ''}</button>`;
 }
 function muscleChips(lv){ const hot = Object.keys(lv).filter(k => lv[k] >= 1), warm = Object.keys(lv).filter(k => lv[k] < 1); return `<div class="musclelist">${hot.map(k => `<span class="chip kraft">${BODY.NAMES[k]}</span>`).join('')}${warm.map(k => `<span class="chip">${BODY.NAMES[k]}</span>`).join('')}</div>`; }
-function routineCard(r){ const first = EXMAP[r.items[0][0]]; return `<div class="routine"><div class="mini">${exMedia(first, muscleLevels(r.items.map(i => i[0])))}</div><div class="label" style="color:var(--ring2)">${r.min} Min · ${r.items.length} Übungen</div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
+function routineCard(r){ const first = EXMAP[r.items[0][0]]; return `<div class="routine"><div class="mini">${BODY.pair(muscleLevels(r.items.map(i => i[0])))}</div><div class="label" style="color:var(--ring2)">${r.min} Min · ${r.items.length} Übungen</div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
 
 // ---------- Ansichten Kunde ----------
 function viewHeute(c){
@@ -163,7 +163,7 @@ function viewUebungen(c){
   <div class="card stack"><div class="label">${muscleSel ? 'Übungen für: ' + BODY.NAMES[muscleSel] : 'Tipp auf einen Muskel'}</div>${BODY.pair(lv, {clickable:true})}${muscleSel ? '<button class="btn ghost" data-act="musclereset">Alle Muskeln zeigen</button>' : ''}</div>
   <div class="filters">${FILTERS.map(([k,l]) => `<button class="fchip" data-act="exfilter" data-id="${k}" aria-pressed="${exFilter===k}">${l}</button>`).join('')}</div>
   <div class="exlist">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
-  <p class="credit">Übungen und Grafiken von Jonathan Coaching. Bei Schmerzen abbrechen und mit Jonathan sprechen.</p>
+  <p class="credit">Bei Schmerzen abbrechen und mit Jonathan sprechen. Muskelmodell: Wikimedia Commons „Muscular system“ und wger.de, Lizenz CC BY-SA.</p>
   </div>`;
 }
 function chart(c){
