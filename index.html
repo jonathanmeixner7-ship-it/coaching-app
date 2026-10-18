@@ -134,6 +134,11 @@ svg.anim .prop{fill:var(--card2)} svg.anim .prop-line{fill:none;stroke:#3A4246;s
 svg.anim .weight{fill:var(--warm)} svg.anim .band{stroke:var(--warm)} svg.anim .pole{stroke:var(--muted)}
 .animbox{background:radial-gradient(ellipse at 50% 85%,var(--accent-soft),var(--card) 65%);border-radius:20px;padding:10px 10px 4px}
 .animbox svg{max-height:300px;margin:0 auto}
+.photoanim{position:relative;width:100%;aspect-ratio:1;border-radius:16px;overflow:hidden;background:#2a2d2f}
+.animbox .photoanim{max-width:340px;margin:0 auto}
+.photoanim img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.photoanim img.b{animation:vormachen 2.8s ease-in-out infinite}
+@keyframes vormachen{0%,22%{opacity:0}42%,72%{opacity:1}92%,100%{opacity:0}}
 .exhead{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:center}
 .exhead .mini{background:var(--card2);border-radius:14px;padding:4px}
 .routine .mini{background:rgba(0,0,0,.25);border-radius:14px;padding:4px;width:110px}
@@ -198,9 +203,9 @@ svg.anim .weight{fill:var(--warm)} svg.anim .band{stroke:var(--warm)} svg.anim .
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=8"></script>
-<script src="anim.js?v=8"></script>
-<script src="exercises.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="body.js?v=9"></script>
+<script src="anim.js?v=9"></script>
+<script src="exercises.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

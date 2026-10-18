@@ -18,6 +18,13 @@ const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); retu
 const today = () => { const t = new Date(); t.setHours(12,0,0,0); return t; };
 const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
 const gender = () => (C && C.p && C.p.gender) || 'm';
+// Übung vormachen: Foto-Überblendung, wenn vorhanden (passende Figur, sonst die andere), sonst animiertes Männchen
+function exMedia(e, lv){
+  const have = PHOTOS[e.id] || [], g = have.includes(gender()) ? gender() : have[0];
+  if (!g) return exMedia(e, lv);
+  const src = n => `img/ex/${e.id}_${g}_${n}.jpg?v=1`;
+  return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><img src="${src(1)}" alt="" loading="lazy"><img class="b" src="${src(2)}" alt="" loading="lazy"></div>`;
+}
 const shortDate = d => new Date(d+'T12:00').toLocaleDateString('de-DE',{day:'numeric',month:'numeric'});
 
 let session = null, me = null;       // me = eigenes Profil
@@ -97,7 +104,7 @@ function taskBtn(t, isDone){
   return `<button class="task ${isDone?'is-done':''}" data-act="${hasEx ? 'openitem' : 'toggle'}" data-id="${t.id}" aria-pressed="${isDone}"><span class="box"></span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min?`<span class="chip">${t.min} Min</span>`:''}${hasEx?`<span class="chip">${t.exercises.length} Übungen</span>`:''}${t.note?`<span class="small muted">${esc(t.note)}</span>`:''}</span></span>${hasEx && !isDone ? '<span class="go">START ›</span>' : ''}</button>`;
 }
 function muscleChips(lv){ const hot = Object.keys(lv).filter(k => lv[k] >= 1), warm = Object.keys(lv).filter(k => lv[k] < 1); return `<div class="musclelist">${hot.map(k => `<span class="chip kraft">${BODY.NAMES[k]}</span>`).join('')}${warm.map(k => `<span class="chip">${BODY.NAMES[k]}</span>`).join('')}</div>`; }
-function routineCard(r){ const first = EXMAP[r.items[0][0]]; return `<div class="routine"><div class="row between" style="align-items:flex-start"><div class="label" style="color:var(--accent)">${r.min} Min · ${r.items.length} Übungen · ${r.ort === 'studio' ? 'Studio' : 'Zuhause'}</div><div class="mini">${ANIM.svg(first.anim, muscleLevels(r.items.map(i => i[0])), gender())}</div></div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
+function routineCard(r){ const first = EXMAP[r.items[0][0]]; return `<div class="routine"><div class="row between" style="align-items:flex-start"><div class="label" style="color:var(--accent)">${r.min} Min · ${r.items.length} Übungen · ${r.ort === 'studio' ? 'Studio' : 'Zuhause'}</div><div class="mini">${exMedia(first, muscleLevels(r.items.map(i => i[0])))}</div></div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
 
 // ---------- Ansichten Kunde ----------
 function viewHeute(c){
@@ -148,7 +155,7 @@ function viewUebungen(c){
   <h2>Übungen</h2>
   <div class="card stack"><div class="label">${muscleSel ? 'Übungen für: ' + BODY.NAMES[muscleSel] : 'Tipp auf einen Muskel'}</div>${BODY.pair(lv, {clickable:true})}${muscleSel ? '<button class="btn ghost" data-act="musclereset">Alle Muskeln zeigen</button>' : ''}</div>
   <div class="filters">${FILTERS.map(([k,l]) => `<button class="fchip" data-act="exfilter" data-id="${k}" aria-pressed="${exFilter===k}">${l}</button>`).join('')}</div>
-  <div class="stack" style="gap:10px">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${ANIM.svg(e.anim, muscleLevels([e.id]), gender())}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
+  <div class="stack" style="gap:10px">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
   <p class="credit">Übungen und Grafiken von Jonathan Coaching. Bei Schmerzen abbrechen und mit Jonathan sprechen.</p>
   </div>`;
 }
@@ -225,7 +232,7 @@ function exDetail(e){
   const lv = muscleLevels([e.id]);
   return `<div class="wrap stack"><div class="top"><button class="btn ghost" data-act="closeov">← Zurück</button><span class="chip ${e.kat === 'ems' ? 'ems' : 'kraft'}">${esc(KAT[e.kat])}</span></div>
   <h1>${esc(e.name)}</h1>
-  <div class="animbox">${ANIM.svg(e.anim, lv, gender())}</div>
+  <div class="animbox">${exMedia(e, lv)}</div>
   <div class="card stack"><div class="label">Diese Muskeln arbeiten</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">${esc(ORT[e.ort])}</span><span class="chip">${esc(e.geraet)}</span><span class="chip">${e.sets} × ${esc(e.reps)}</span></div>
   <div class="card stack"><div class="label">So geht's</div><ol class="steps">${e.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
@@ -243,7 +250,7 @@ function viewWorkout(){
   <h1>${esc(W.title)}</h1>
   <div class="progress"><span style="width:${total ? dn/total*100 : 0}%"></span></div>
   <div class="card stack"><div class="label">Diese Muskeln trainierst du</div>${BODY.pair(lv)}</div>
-  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${ANIM.svg(e.anim, muscleLevels([e.id]), gender())}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div><button class="btn ghost" style="min-height:38px;padding:6px 12px;margin-top:6px" data-act="exinfo" data-id="${e.id}">So geht's</button></div></div>
+  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${exMedia(e, muscleLevels([e.id]))}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div><button class="btn ghost" style="min-height:38px;padding:6px 12px;margin-top:6px" data-act="exinfo" data-id="${e.id}">So geht's</button></div></div>
     <div class="stack" style="gap:8px"><div class="setrow small muted"><span>Satz</span><span>${sec ? 'Zeit' : 'Wdh.'}</span><span>${e.ort === 'studio' ? 'kg' : ''}</span><span></span></div>
     ${it.done.map((d, s) => `<div class="setrow"><span class="n">${s+1}</span><span>${esc(it.reps)}</span>${e.ort === 'studio' ? `<input data-kg="${i}-${s}" inputmode="decimal" value="${esc(it.kg[s])}" aria-label="Gewicht Satz ${s+1}">` : '<span></span>'}<button class="setbtn ${d ? 'on' : ''}" data-act="set" data-id="${i}-${s}" aria-label="Satz ${s+1} erledigt" aria-pressed="${d}"></button></div>`).join('')}</div></div>`; }).join('')}
   <button class="btn" data-act="finish">${dn === total ? 'Training abschließen' : 'Training beenden'}</button>
