@@ -140,15 +140,15 @@ svg.body .ring{fill:none;stroke:var(--accent);stroke-width:2.2}
 .exitem .thumb{flex:none;width:80px;height:80px;border-radius:14px;background:var(--card2);padding:2px;display:grid;place-items:center;overflow:hidden}
 .exitem .thumb svg{max-height:76px}
 .exitem .thumb .photoanim{border-radius:12px}
-.routine{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;min-height:250px;border-radius:24px;padding:16px;overflow:hidden;color:#fff;background:linear-gradient(160deg,#2B2D31,#141516)}
-.routine .mini{position:absolute;inset:0;width:auto;background:none;border-radius:0;padding:12px 12px 70px}
+.routine{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;min-height:300px;padding-top:170px !important;border-radius:24px;padding:16px;overflow:hidden;color:#fff;background:linear-gradient(160deg,#2B2D31,#141516)}
+.routine .mini{position:absolute;left:0;right:0;top:0;height:170px;width:auto;background:none;border-radius:0;padding:10px 10px 0}
 .routine .mini svg{height:100%;max-height:none;width:100%}
 .routine .mini .photoanim{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;border-radius:0}
-.routine::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.78));pointer-events:none}
+.routine::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.55));pointer-events:none}
 .routine > *:not(.mini){position:relative;z-index:1}
 .routine .label{color:rgba(255,255,255,.75)}
 .routine .muted{color:rgba(255,255,255,.75)}
-.routine .row{position:static}
+.routine > .row{position:absolute;left:16px;right:16px;top:14px;z-index:2}
 .routine .btn{align-self:flex-start;min-height:40px;padding:8px 18px;font-size:.9375rem;background:#fff;color:#000}
 .routine svg.anim .near .sk{fill:#8E8E93} .routine svg.anim .far .sk{fill:#48484A}
 .routine svg.anim .ground{stroke:rgba(255,255,255,.12)}
@@ -245,9 +245,9 @@ svg.anim .weight{fill:var(--warm)} svg.anim .band{stroke:var(--warm)} svg.anim .
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=15"></script>
-<script src="anim.js?v=15"></script>
-<script src="exercises.js?v=15"></script>
-<script src="app.js?v=15"></script>
+<script src="body.js?v=16"></script>
+<script src="anim.js?v=16"></script>
+<script src="exercises.js?v=16"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
