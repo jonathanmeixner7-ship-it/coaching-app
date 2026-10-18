@@ -173,8 +173,8 @@ const PHOTO_RINGS = {
 };
 function bodyPhoto(c, v){
   const g = c.p.gender === 'w' ? 'w' : 'm', R = PHOTO_RINGS[g];
-  const items = [['chest','Brust'],['arm','Oberarm'],['waist','Taille'],['hip','Hüfte'],['thigh','Oberschenkel']];
-  return `<div class="bodyphoto"><img src="img/koerper_${g}.jpg?v=1" alt="Körperbild" onerror="this.closest('.bodyphoto').classList.add('noimg')">${items.map(([k,l], i) => { const [y,x,w] = R[k], left = i % 2 === 0; return `<span class="pring${v[k] != null ? ' on' : ''}" style="top:${y}%;left:${x - w/2}%;width:${w}%"></span><span class="plabel ${left ? 'l' : 'r'}" style="top:${y}%">${l}<b>${v[k] != null ? fmt(v[k]) + ' cm' : '–'}</b></span>`; }).join('')}${v.body_fat != null ? `<span class="plabel fat" style="top:61%">Körperfett<b>${fmt(v.body_fat)} %</b></span>` : ''}</div>`;
+  const items = [['chest','Brust','r'],['arm','Oberarm','l'],['waist','Taille','l'],['hip','Hüfte','r'],['thigh','Oberschenkel','r']];
+  return `<div class="bodyphoto"><img src="img/koerper_${g}.jpg?v=1" alt="Körperbild" onerror="this.closest('.bodyphoto').classList.add('noimg')">${items.map(([k,l,side]) => { const [y,x,w] = R[k], left = side === 'l'; return `<span class="pring${v[k] != null ? ' on' : ''}" style="top:${y}%;left:${x - w/2}%;width:${w}%"></span><span class="plabel ${left ? 'l' : 'r'}" style="top:${y}%">${l}<b>${v[k] != null ? fmt(v[k]) + ' cm' : '–'}</b></span>`; }).join('')}${v.body_fat != null ? `<span class="plabel fat" style="top:52%">Körperfett<b>${fmt(v.body_fat)} %</b></span>` : ''}</div>`;
 }
 function bodyCard(c, editable){
   const {v, first} = latestBody(c);
