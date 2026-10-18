@@ -355,7 +355,7 @@ function viewCoachEdit(c){
 // ---------- Anmeldung ----------
 function viewAuth(){
   const reg = authMode === 'register';
-  return `<div class="auth stack"><div><div class="label">Jonathan Coaching</div><h1>${reg ? 'Konto erstellen' : 'Willkommen zurück'}</h1><p class="muted" style="margin:6px 0 0">Dein persönlicher Trainingsplan, deine Erfolge, dein Ziel.</p></div>
+  return `<div class="auth stack"><div class="stack" style="gap:10px"><img class="brandlogo" src="img/logo.png?v=1" alt="Logo Jonathan Coaching"><div><div class="label">Jonathan Coaching</div><h1>${reg ? 'Konto erstellen' : 'Willkommen zurück'}</h1><p class="muted" style="margin:6px 0 0">Dein persönlicher Trainingsplan, deine Erfolge, dein Ziel.</p></div></div>
   <div class="card">${BODY.pair({brust:1, bauch:1, oberschenkel_vorne:1, po:1, latissimus:1, schultern:.5, waden:.5})}</div>
   <div class="seg"><button data-act="mode" data-mode="login" aria-pressed="${!reg}">Anmelden</button><button data-act="mode" data-mode="register" aria-pressed="${reg}">Registrieren</button></div>
   <form class="card stack" data-form="auth">
