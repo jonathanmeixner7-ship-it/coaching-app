@@ -157,7 +157,10 @@ svg.body .ring{fill:none;stroke:var(--accent);stroke-width:2.2}
 .routine .mini svg{height:100%;max-height:none;width:100%}
 .routine .mini .photoanim{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;border-radius:0}
 .routine::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.55));pointer-events:none}
-.routine > *:not(.mini){position:relative;z-index:1}
+.routine > *:not(.mini):not(.coverimg){position:relative;z-index:1}
+.routine.cover{padding-top:16px !important;min-height:340px;background:#07142E}
+.routine .coverimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 30%}
+.routine.cover::after{background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.8))}
 .routine .label{color:rgba(255,255,255,.75)}
 .routine .muted{color:rgba(255,255,255,.75)}
 .routine > .row{position:absolute;left:16px;right:16px;top:14px;z-index:2}
@@ -257,9 +260,9 @@ svg.anim .weight{fill:var(--warm)} svg.anim .band{stroke:var(--warm)} svg.anim .
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=18"></script>
-<script src="anim.js?v=18"></script>
-<script src="exercises.js?v=18"></script>
-<script src="app.js?v=18"></script>
+<script src="body.js?v=19"></script>
+<script src="anim.js?v=19"></script>
+<script src="exercises.js?v=19"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

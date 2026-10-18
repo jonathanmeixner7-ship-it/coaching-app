@@ -119,6 +119,8 @@ const EX = [
    tip:'Am Tag danach ist ein Spaziergang ideal für die Erholung.', fehler:'Mit leerem Magen oder zu wenig getrunken kommen.'}
 ];
 const EXMAP = Object.fromEntries(EX.map(e => [e.id, e]));
+// Programme mit eigenem Titelbild (3D-Avatar, KI-erzeugt) → img/prog/<id>.jpg
+const COVERS = ['ruecken', 'rumpf', 'unterer_ruecken'];
 // Übungen mit echten Fotos (Start- und Endposition), pro Figur: m = Mann, w = Frau → img/ex/<id>_<m|w>_1.jpg und _2.jpg
 const PHOTOS = {kniebeuge: ['m'], kniebeuge_stuhl: ['m'], ausfallschritt: ['m']};
 
