@@ -175,7 +175,7 @@ function chart(c){
   const step = Math.ceil(h.length / 6);
   const tgt = c.goal.target != null ? `<line x1="${p.l}" x2="${W-p.r}" y1="${Y(c.goal.target)}" y2="${Y(c.goal.target)}" stroke="var(--warm)" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${W-p.r}" y="${Y(c.goal.target)-5}" text-anchor="end" style="fill:var(--warm)">Ziel ${fmt(c.goal.target)} ${esc(c.goal.unit)}</text>` : '';
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Verlauf">${tgt}
-  <polygon points="${p.l},${H-p.b} ${pts} ${X(h.length-1)},${H-p.b}" fill="var(--accent-soft)"/>
+  <polygon points="${p.l},${H-p.b} ${pts} ${X(h.length-1)},${H-p.b}" fill="var(--tint-soft)"/>
   <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>
   ${h.map((x,i) => `<circle cx="${X(i)}" cy="${Y(x.value)}" r="${i===h.length-1?5.5:3.5}" fill="var(--accent)"/>${i % step === 0 || i === h.length-1 ? `<text x="${X(i)}" y="${H-6}" text-anchor="middle">${shortDate(x.date)}</text>` : ''}`).join('')}
   <text x="4" y="${Y(h[0].value)+4}">${fmt(h[0].value)}</text></svg>`;
@@ -208,7 +208,7 @@ function viewKoerper(c){
   else {
     const {cur, pct} = goalPct(c); const diff = Math.abs(g.target - cur);
     goalHtml = `<div class="card hi stack"><div class="label">Dein Ziel</div><h2>${esc(g.title)}</h2>
-   <div class="row between"><span class="muted">Start ${fmt(g.start)} ${esc(g.unit)}</span><b style="font-family:var(--display);font-size:1.5rem;font-style:italic">${fmt(cur)} ${esc(g.unit)}</b><span class="muted">Ziel ${fmt(g.target)} ${esc(g.unit)}</span></div>
+   <div class="row between"><span class="muted">Start ${fmt(g.start)} ${esc(g.unit)}</span><b style="font-family:var(--display);font-size:1.5rem;font-weight:700;letter-spacing:-.02em">${fmt(cur)} ${esc(g.unit)}</b><span class="muted">Ziel ${fmt(g.target)} ${esc(g.unit)}</span></div>
    <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
    <div>${pct >= 100 ? '<b>Ziel erreicht!</b> Zeit für ein neues mit Jonathan.' : `<b>${pct}% geschafft.</b> Noch ${fmt(diff)} ${esc(g.unit)} bis zum Ziel.`}</div>${chart(c)}
    <form class="stack sheet" data-form="measure"><label class="field"><span class="small muted">Neuer Wert in ${esc(g.unit)}</span><input id="mVal" type="text" inputmode="decimal" required placeholder="${fmt(cur)}"></label><button class="btn">Eintragen</button></form></div>`;
@@ -243,7 +243,7 @@ function exDetail(e){
   <div class="card stack"><div class="label">Diese Muskeln arbeiten</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">${esc(ORT[e.ort])}</span><span class="chip">${esc(e.geraet)}</span><span class="chip">${e.sets} × ${esc(e.reps)}</span></div>
   <div class="card stack"><div class="label">So geht's</div><ol class="steps">${e.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
-  <div class="card stack"><div class="label" style="color:var(--accent)">Tipp</div><div>${esc(e.tip)}</div><div class="label" style="color:var(--warm)">Typischer Fehler</div><div>${esc(e.fehler)}</div></div>
+  <div class="card stack"><div class="label" style="color:var(--tint)">Tipp</div><div>${esc(e.tip)}</div><div class="label" style="color:var(--warm)">Typischer Fehler</div><div>${esc(e.fehler)}</div></div>
   ${OV.back ? '' : '<button class="btn" data-act="startsingle" data-id="' + e.id + '">Diese Übung jetzt machen</button>'}</div>`;
 }
 function startWorkout(title, list, src){
@@ -265,7 +265,7 @@ function viewWorkout(){
 }
 function viewSummary(){
   const S = OV, lv = muscleLevels(S.list.filter(x => x.done.some(Boolean)));
-  return `<div class="wrap stack" style="padding-top:28px"><div class="label" style="color:var(--accent)">Geschafft</div><h1>${esc(S.title)}</h1>
+  return `<div class="wrap stack" style="padding-top:28px"><div class="label" style="color:var(--tint)">Geschafft</div><h1>${esc(S.title)}</h1>
   <div class="stats"><div class="stat"><b>${S.min}</b><span class="small muted">Minuten</span></div><div class="stat"><b>${S.sets}</b><span class="small muted">Sätze</span></div><div class="stat"><b>${S.exCount}</b><span class="small muted">Übungen</span></div></div>
   <div class="card hi stack"><div class="label">Trainierte Muskeln</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
   <button class="btn" data-act="closeov">Fertig</button></div>`;
@@ -285,7 +285,7 @@ function stopTimer(){ if (timer) clearInterval(timer.h); timer = null; const tb 
 function tickTimer(){
   if (!timer) return; const left = Math.max(0, Math.ceil((timer.end - Date.now())/1000));
   const tb = document.getElementById('timerbox'); if (!tb) return;
-  tb.innerHTML = `<div class="timer"><div class="in"><div><div class="label" style="color:${timer.mode === 'rest' ? 'var(--accent)' : 'var(--warm)'}">${timer.mode === 'rest' ? 'Pause' : 'Halten'}</div><b>${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</b></div><div class="row">${timer.mode === 'rest' ? '<button class="btn ghost" data-act="timerplus">+15 s</button>' : ''}<button class="btn" data-act="timerskip">${timer.mode === 'rest' ? 'Weiter' : 'Fertig'}</button></div></div></div>`;
+  tb.innerHTML = `<div class="timer"><div class="in"><div><div class="label" style="color:${timer.mode === 'rest' ? 'var(--tint)' : 'var(--warm)'}">${timer.mode === 'rest' ? 'Pause' : 'Halten'}</div><b>${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</b></div><div class="row">${timer.mode === 'rest' ? '<button class="btn ghost" data-act="timerplus">+15 s</button>' : ''}<button class="btn" data-act="timerskip">${timer.mode === 'rest' ? 'Weiter' : 'Fertig'}</button></div></div></div>`;
   if (left <= 0) { const cb = timer.onDone; stopTimer(); if (navigator.vibrate) navigator.vibrate(200); if (cb) cb(); }
 }
 function markSet(i, s){
