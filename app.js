@@ -101,6 +101,11 @@ function rings3(vals, size = 132){
   const cols = ['var(--ring1)','var(--ring2)','var(--ring3)'], w = 15, gap = 3;
   return `<svg class="rings" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="Aktivitätsringe">${vals.map((v, i) => { const r = size/2 - w/2 - i*(w+gap), C2 = 2*Math.PI*r, p = Math.max(0, Math.min(1, v)); return `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${cols[i]}" stroke-opacity=".22" stroke-width="${w}"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${cols[i]}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${(C2*p).toFixed(1)} ${C2.toFixed(1)}" transform="rotate(-90 ${size/2} ${size/2})"/>`; }).join('')}</svg>`;
 }
+// Tageskarte: drei schräge Tempo-Balken im Stil des MX-Logos
+function tempoBars(pct, min, days){
+  const bar = (l, v, unit, frac) => `<div class="tk-bar"><div class="lbl"><span>${l}</span><span><b class="tk-num">${v}</b> ${unit}</span></div><div class="tk-track" role="progressbar" aria-label="${l}" aria-valuenow="${Math.round(Math.min(1, frac)*100)}" aria-valuemin="0" aria-valuemax="100"><div class="tk-fill" style="width:${Math.max(3, Math.min(100, frac*100))}%"></div></div></div>`;
+  return `<div class="tk-bars">${bar('Heute erledigt', pct, '%', pct/100)}${bar('Bewegung diese Woche', min, '/ 150 Min', min/150)}${bar('Aktive Tage', days, '/ 7', days/7)}</div>`;
+}
 function activeDays(c){ return weekDates().filter(d => d <= today() && (dayStatus(c, d).done > 0 || (c.extras[iso(d)] || []).length)).length; }
 function strip(c){
   const T = today();
@@ -128,7 +133,7 @@ function viewHeute(c){
   return `${head(c, null, DAYNAMES[dayKey(T)] + ', ' + T.toLocaleDateString('de-DE',{day:'numeric',month:'long'}))}<div class="stack">
   ${strip(c)}
   ${due ? `<div class="reminder"><b>Erinnerung:</b> ${open.map(t => esc(t.title)).join(', ')} ${open.length===1?'wartet':'warten'} noch auf dich.</div>` : ''}
-  <div class="card today-head">${rings3([pct/100, weekMinutes(c)/150, activeDays(c)/7])}<div class="ringlegend"><div class="lg"><span style="color:var(--ring1)">Heute</span><b>${pct}<small> %</small></b></div><div class="lg"><span style="color:var(--ring2)">Bewegung</span><b>${weekMinutes(c)}<small>/150 Min</small></b></div><div class="lg"><span style="color:var(--ring3)">Aktive Tage</span><b>${activeDays(c)}<small>/7</small></b></div></div></div>
+  <div class="card">${tempoBars(pct, weekMinutes(c), activeDays(c))}</div>
   <div class="small muted" style="padding-inline:4px">${msg} · ${streak(c)} ${streak(c) === 1 ? 'Tag' : 'Tage'} in Folge aktiv</div>
   ${c.p.coach_note ? `<div class="coachmsg"><span class="avatar">J</span><div style="min-width:0"><div class="small" style="font-weight:600">Jonathan</div><div>${esc(c.p.coach_note)}</div></div></div>` : ''}
   <div class="section"><h2>Dein Programm</h2><span class="small muted">${items.length} ${items.length === 1 ? 'Einheit' : 'Einheiten'}</span></div>
