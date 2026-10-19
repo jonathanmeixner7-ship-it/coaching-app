@@ -334,7 +334,7 @@ async function addEat(entry){
 }
 // ---------- 360°-Körper: eigenes Dreh-Video → 36 Bilder (6×6-Raster), privat in Supabase Storage ----------
 const SPIN = {};                     // Kunden-ID → {loading} | {none} | {url}
-const SPIN_N = 36, SPIN_COLS = 6, SPIN_W = 300, SPIN_H = 540, SPIN_SCAN = 48;
+const SPIN_N = 36, SPIN_COLS = 6, SPIN_W = 360, SPIN_H = 648, SPIN_SCAN = 48;
 const spinPath = id => id + '/dreh.jpg';
 function rerenderKeep(){ if (OV) return; const y = scrollY; render(); scrollTo(0, y); }
 async function loadSpin(id){
@@ -369,7 +369,7 @@ document.addEventListener('pointermove', e => { if (!spinDrag) return; setFrame(
 
 // Video im Browser in Bilder zerlegen (nichts verlässt das Handy außer dem fertigen Bild)
 function seekTo(v, t){ return new Promise(res => { let done = false; const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); res(); }; v.addEventListener('seeked', fin); setTimeout(fin, 3000); v.currentTime = Math.min(Math.max(0, t), Math.max(0, v.duration - 0.05)); }); }
-function drawCover(ctx, v, x, y, w, h){ const vw = v.videoWidth, vh = v.videoHeight, s = Math.max(w / vw, h / vh), sw = w / s, sh = h / s; ctx.drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, w, h); }
+function drawCover(ctx, v, x, y, w, h){ const vw = v.videoWidth || v.width, vh = v.videoHeight || v.height, s = Math.max(w / vw, h / vh), sw = w / s, sh = h / s; ctx.drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, w, h); }
 async function startSpinMake(id, file){
   OV = {type: 'spinmake', id, step: 'scan', p: 0, thumbs: [], a: 0, b: SPIN_SCAN - 1}; openOverlay();
   try {
@@ -399,29 +399,41 @@ function spinPreview(){
   clearInterval(spinPreview.h); let i = 0;
   spinPreview.h = setInterval(() => { const img = document.getElementById('spinPrev'); if (!OV || OV.type !== 'spinmake' || !img) { clearInterval(spinPreview.h); return; } const n = OV.b - OV.a + 1; img.src = OV.thumbs[OV.a + (i++ % n)]; }, 110);
 }
+function loadAvatarLib(){ return window.AVATAR ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'avatar.js?v=35'; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); }); }
 async function saveSpin(){
   const W = OV, v = W.v, d = v.duration, ta = d * (W.a + 0.5) / SPIN_SCAN, tb = d * (W.b + 0.5) / SPIN_SCAN;
-  W.step = 'build'; W.p = 0; renderOverlay();
-  const c = document.createElement('canvas'); c.width = SPIN_W * SPIN_COLS; c.height = SPIN_H * Math.ceil(SPIN_N / SPIN_COLS); const ctx = c.getContext('2d');
-  ctx.fillStyle = '#111'; ctx.fillRect(0, 0, c.width, c.height);
+  W.step = 'build'; W.p = 0; W.msg = 'Bilder aus dem Video holen …'; renderOverlay();
+  // 36 Einzelbilder (lange Seite höchstens 960 px)
+  const k = Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight)), fw = Math.round(v.videoWidth * k), fh = Math.round(v.videoHeight * k), frames = [];
   for (let i = 0; i < SPIN_N; i++) {
     if (!OV || OV.type !== 'spinmake') return;
-    await seekTo(v, ta + (tb - ta) * i / SPIN_N); drawCover(ctx, v, (i % SPIN_COLS) * SPIN_W, Math.floor(i / SPIN_COLS) * SPIN_H, SPIN_W, SPIN_H);
-    W.p = Math.round((i + 1) / SPIN_N * 90); renderOverlay();
+    await seekTo(v, ta + (tb - ta) * i / SPIN_N); const f = document.createElement('canvas'); f.width = fw; f.height = fh; f.getContext('2d').drawImage(v, 0, 0, fw, fh); frames.push(f);
+    W.p = Math.round((i + 1) / SPIN_N * 10); renderOverlay();
   }
-  const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.8));
+  // Avatar-Look: freistellen + Studio + Podest; klappt das nicht, bleibt die einfache Video-Version
+  let cells = null;
+  try {
+    W.msg = 'KI stellt dich frei … (1–3 Minuten, App bitte offen lassen)'; renderOverlay();
+    await loadAvatarLib();
+    cells = await AVATAR.process(frames, SPIN_W, SPIN_H, p => { if (OV === W) { W.p = 10 + Math.round(p * 85); renderOverlay(); } });
+  } catch (e) { console.warn('Avatar', e); cells = null; }
+  if (!OV || OV.type !== 'spinmake') return;
+  const c = document.createElement('canvas'); c.width = SPIN_W * SPIN_COLS; c.height = SPIN_H * Math.ceil(SPIN_N / SPIN_COLS); const ctx = c.getContext('2d');
+  ctx.fillStyle = '#111'; ctx.fillRect(0, 0, c.width, c.height);
+  frames.forEach((f, i) => { const x = (i % SPIN_COLS) * SPIN_W, y = Math.floor(i / SPIN_COLS) * SPIN_H; if (cells) ctx.drawImage(cells[i], x, y); else drawCover(ctx, f, x, y, SPIN_W, SPIN_H); });
+  const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.84));
   W.step = 'upload'; renderOverlay();
   const {error} = await sb.storage.from('koerper').upload(spinPath(W.id), blob, {upsert: true, contentType: 'image/jpeg', cacheControl: '60'});
   if (error) throw error;
   URL.revokeObjectURL(v.src); SPIN[W.id] = {url: URL.createObjectURL(blob)};
-  closeOverlay(); render(); toast('Dein 360°-Körper ist gespeichert');
+  closeOverlay(); render(); toast(cells ? 'Dein 360°-Avatar ist fertig' : 'Gespeichert (ohne Freistellen – das Handy war dafür zu langsam)');
 }
 function viewSpinMake(){
   const W = OV, bar = p => `<div class="bar"><span style="width:${p}%"></span></div>`;
   const top = `<div class="wrap stack" style="padding-top:28px"><div class="row between"><div class="label" style="color:var(--tint)">360°-Körper</div><button class="btn link" data-act="closeov">Abbrechen</button></div>`;
   if (W.step === 'fail') return `${top}<h1>Das Video ließ sich nicht lesen</h1><p class="muted">Bitte nimm es nochmal mit der normalen Kamera-App auf (hochkant, ca. 10 Sekunden) und wähle es dann aus.</p><button class="btn" data-act="closeov">OK</button></div>`;
   if (W.step === 'scan') return `${top}<h1>Video wird angeschaut …</h1>${bar(W.p)}<p class="small muted">Das passiert direkt auf deinem Handy.</p></div>`;
-  if (W.step === 'build' || W.step === 'upload') return `${top}<h1>${W.step === 'build' ? 'Bilder werden erstellt …' : 'Wird gespeichert …'}</h1>${bar(W.step === 'build' ? W.p : 95)}</div>`;
+  if (W.step === 'build' || W.step === 'upload') return `${top}<h1>${W.step === 'build' ? 'Dein Avatar entsteht …' : 'Wird gespeichert …'}</h1>${bar(W.step === 'build' ? W.p : 97)}<p class="small muted">${W.step === 'build' ? esc(W.msg || '') : ''}</p></div>`;
   const t = i => (W.v.duration * (i + 0.5) / SPIN_SCAN).toFixed(1).replace('.', ',');
   return `${top}<h1>Passt die Drehung?</h1>
    <div class="spintrim"><img id="spinPrev" src="${W.thumbs[W.a]}" alt="Vorschau der Drehung"></div>
