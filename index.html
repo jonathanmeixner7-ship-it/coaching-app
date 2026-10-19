@@ -83,6 +83,35 @@ details summary{color:var(--tint);font-weight:500;list-style:none} details summa
 .sd.part i{box-shadow:inset 0 0 0 3px var(--warm)}
 .sd.rest i{color:var(--muted)}
 
+/* „Als Nächstes“, Serie, Rekorde, Rückmeldung, Konfetti */
+.nextcard{display:grid;grid-template-columns:112px minmax(0,1fr);gap:14px;align-items:center;background:var(--card);border-radius:22px;padding:14px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.nextcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#FF5A66,#7A0012)}
+.nextcard.done::before{background:var(--done)}
+.nc-media{width:112px;height:112px;border-radius:16px;overflow:hidden;background:var(--card2);display:grid;place-items:center}
+.nc-media .photoanim{border-radius:16px}
+.nc-media svg.anim{max-height:108px}
+.nc-icon{width:112px;height:112px;border-radius:16px;background:var(--card2);display:grid;place-items:center;font-size:2.6rem}
+.nc-icon.ok{background:var(--done);color:#fff;font-weight:800}
+.nc-body{display:flex;flex-direction:column;gap:6px;min-width:0}
+.nc-body h2{font-size:1.2rem}
+.nc-body .btn{align-self:flex-start;min-height:42px;padding:9px 16px;font-size:.9375rem;margin-top:4px}
+.streakline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:.875rem;padding-top:10px;border-top:.5px solid var(--line)}
+.streakline b{font-size:1.15rem}
+.flame{width:16px;height:20px;background:linear-gradient(180deg,#FF9F0A,#E0283A);clip-path:path('M8 0C9 5 15 7 15 13A7 7 0 0 1 1 13C1 9 4 7 5 4C6 7 7 8 8 8C8 5 7 3 8 0Z')}
+.joker{margin-left:auto;font-size:.75rem;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--tint-soft);color:var(--tint)}
+.joker.used{background:var(--fill);color:var(--muted)}
+.lastline{font-size:.8125rem;color:var(--muted);margin-top:2px}
+.prbadge{display:inline-block;align-self:flex-start;font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:99px;background:linear-gradient(90deg,#7A0012,#E0283A);color:#fff;margin-top:4px}
+.rpe{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.rpeb{border:0;border-radius:10px;min-height:40px;background:var(--fill);font-weight:700;font-variant-numeric:tabular-nums}
+.rpeb.on{background:var(--tint);color:var(--on-tint)}
+.moods{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.moodb{border:0;border-radius:14px;background:var(--fill);padding:8px 2px;font-size:.6875rem;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:58px}
+.moodb span{font-size:1.4rem;line-height:1.2}
+.moodb.on{background:var(--tint-soft);box-shadow:inset 0 0 0 2px var(--tint)}
+.fb{display:flex;flex-direction:column;gap:2px}
+.fbnote{font-size:.875rem;font-style:italic}
+.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
 /* Tageskarte: Tempo-Balken (MX-Stil) */
 .tk-num{font-family:var(--display);font-weight:900;font-style:italic;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .tk-bars{display:flex;flex-direction:column;gap:14px}
@@ -283,9 +312,9 @@ details.dp[open] .chev{transform:rotate(225deg) translateY(-2px)}
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=27"></script>
-<script src="anim.js?v=27"></script>
-<script src="exercises.js?v=27"></script>
-<script src="app.js?v=27"></script>
+<script src="body.js?v=28"></script>
+<script src="anim.js?v=28"></script>
+<script src="exercises.js?v=28"></script>
+<script src="app.js?v=28"></script>
 </body>
 </html>

@@ -47,7 +47,12 @@ function shape(profile, items, checkins, extras, measures, body){
   const done = {}; checkins.forEach(c => (done[c.day] ||= []).push(c.item_id));
   const workouts = checkins.filter(c => c.details).length + extras.filter(x => x.details).length;
   const ex = {}; extras.forEach(x => (ex[x.day] ||= []).push({id:x.id, title:x.title, min:x.minutes}));
-  return { p: profile, plan, done, extras: ex, workouts,
+  // Verlauf aller Trainings mit Sätzen (für „Letztes Mal“, Rekorde und Rückmeldungen)
+  const history = [];
+  checkins.forEach(ch => { if (ch.details) { const it = items.find(t => t.id === ch.item_id); history.push({day: ch.day, title: it ? it.title : 'Training', details: ch.details, item: ch.item_id}); } });
+  extras.forEach(x => { if (x.details) history.push({day: x.day, title: x.title, details: x.details, extra: x.id}); });
+  history.sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+  return { p: profile, plan, done, extras: ex, workouts, history,
     body: body.sort((a,b) => a.day < b.day ? -1 : 1),
     goal: { title: profile.goal_title, unit: profile.goal_unit, start: profile.goal_start == null ? null : +profile.goal_start,
             target: profile.goal_target == null ? null : +profile.goal_target,
@@ -87,6 +92,36 @@ function streak(c){ let n = 0; for (let i = 0; i < 90; i++){ const d = addDays(t
 function goalPct(c){ const g = c.goal; if (g.start == null || g.target == null || g.start === g.target) return {cur:null, pct:0}; const cur = g.history.length ? g.history[g.history.length-1].value : g.start; const p = (cur - g.start) / (g.target - g.start); return {cur, pct: Math.max(0, Math.min(100, Math.round(p*100)))}; }
 function countDone(c, kind){ let n = 0; for (const date in c.done){ const items = c.plan[dayKey(date+'T12:00')] || []; c.done[date].forEach(id => { const t = items.find(t => t.id === id); if (t && (!kind || t.kind === kind)) n++; }); } return n; }
 function fullWeeks(c){ let n = 0; for (let w = 0; w < 8; w++){ let ok = true, any = false; const mon = addDays(today(), -dayIdx(today()) - 7*(w+1)); for (let i = 0; i < 7; i++){ const s = dayStatus(c, addDays(mon,i)); if (s.total){ any = true; if (s.done < s.total) ok = false; } } if (any && ok) n++; } return n; }
+function exHistory(c, exId){ const out = []; for (const h of c.history || []) for (const st of (h.details.sets || [])) if (st.ex === exId && st.done) out.push({day: h.day, kg: (st.kg || []).map(parseNum).filter(v => v != null), reps: st.reps, done: st.done}); return out; }
+function lastFor(c, exId){ const h = exHistory(c, exId); return h.length ? h[h.length - 1] : null; }
+function bestKg(c, exId){ return Math.max(0, ...exHistory(c, exId).flatMap(x => x.kg)); }
+// Wochen-Serie: zählt Wochen mit erreichtem Wochenziel; pro Monat rettet ein Joker eine schwache Woche
+function weekGoal(c){ const n = DAYS.reduce((a, k) => a + c.plan[k].length, 0); return Math.max(1, Math.min(3, n || 2)); }
+function weekCount(c, mon){ let n = 0; for (let i = 0; i < 7; i++){ const d = addDays(mon, i); n += dayStatus(c, d).done + (c.extras[iso(d)] || []).length; } return n; }
+function weekStreak(c){
+  const goal = weekGoal(c), mon0 = addDays(today(), -dayIdx(today())), used = {};
+  const thisWeek = weekCount(c, mon0); let n = thisWeek >= goal ? 1 : 0;
+  for (let w = 1; w <= 12; w++){
+    const mon = addDays(mon0, -7*w), mk = iso(mon).slice(0, 7);
+    if (weekCount(c, mon) >= goal) { n++; continue; }
+    if (n > 0 && !used[mk] && weekCount(c, addDays(mon, -7)) >= goal) { used[mk] = true; continue; }
+    break;
+  }
+  return {n, goal, thisWeek, jokerLeft: !used[iso(today()).slice(0, 7)]};
+}
+// Feier-Moment: kurzes rotes Konfetti (nicht bei „Bewegung reduzieren“)
+function celebrate(){
+  if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+  if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = document.createElement('canvas'); cv.className = 'confetti'; document.body.appendChild(cv);
+  const W = cv.width = innerWidth * devicePixelRatio, H = cv.height = innerHeight * devicePixelRatio, ctx = cv.getContext('2d');
+  const cols = ['#E0283A', '#FF5A66', '#7A0012', '#FFFFFF', '#FFB3BA'];
+  const ps = Array.from({length: 110}, () => ({x: W/2 + (Math.random() - .5) * W * .3, y: H * .35, vx: (Math.random() - .5) * 26, vy: -Math.random() * 30 - 8, r: (Math.random() * 6 + 4) * devicePixelRatio, c: cols[Math.floor(Math.random() * cols.length)], a: Math.random() * 6, s: Math.random() * .3 - .15}));
+  const t0 = performance.now();
+  (function f(t){ const k = (t - t0) / 1800; ctx.clearRect(0, 0, W, H); ps.forEach(p => { p.vy += 1.1; p.x += p.vx; p.y += p.vy; p.vx *= .985; p.a += p.s; ctx.save(); ctx.globalAlpha = Math.max(0, 1 - k); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillStyle = p.c; ctx.fillRect(-p.r/2, -p.r/4, p.r, p.r/2); ctx.restore(); }); if (k < 1) requestAnimationFrame(f); else cv.remove(); })(t0);
+}
+const MOODS = [['top','💪','Top'],['gut','🙂','Gut'],['ok','😐','Okay'],['muede','😮‍💨','Müde'],['schmerz','🤕','Schmerzen']];
+const moodOf = k => (MOODS.find(m => m[0] === k) || [])[1] || '';
 // Übungen einer Einheit: eingetragene oder aus dem Titel erraten (EMS, Spaziergang, Rad …)
 function guessEx(t){ const s = t.title.toLowerCase(); if (t.kind === 'ems' || s.includes('ems')) return 'ems'; if (s.includes('nordic')) return 'nordic'; if (s.includes('spazier') || s.includes('schritte') || s.includes('walk')) return 'spaziergang'; if (s.includes('rad')) return 'radfahren'; if (s.includes('treppe')) return 'treppen'; return null; }
 function itemMuscles(t){ if (t.exercises.length) return muscleLevels(t.exercises); const g = guessEx(t); return g ? muscleLevels([g]) : {}; }
@@ -119,6 +154,22 @@ function muscleChips(lv){ const hot = Object.keys(lv).filter(k => lv[k] >= 1), w
 function routineCard(r){ const cover = COVERS.includes(r.id); return `<div class="routine${cover ? ' cover' : ''}">${cover ? `<img class="coverimg" src="img/prog/${r.id}.jpg?v=1" alt="" decoding="async">` : `<div class="mini">${BODY.pair(muscleLevels(r.items.map(i => i[0])))}</div>`}<div class="label" style="color:#FF8A95">${r.min} Min · ${r.items.length} Übungen</div><h2>${esc(r.name)}</h2><div class="small muted">${esc(r.info)}</div><button class="btn" data-act="startroutine" data-id="${r.id}">Starten</button></div>`; }
 
 // ---------- Ansichten Kunde ----------
+// „Als Nächstes“: ein klarer nächster Schritt ganz oben
+function nextCard(c){
+  const T = today(), items = c.plan[dayKey(T)] || [], done = c.done[iso(T)] || [], open = items.filter(t => !done.includes(t.id));
+  if (DAYS.every(k => !c.plan[k].length)) return `<div class="nextcard"><div class="nc-icon">⏳</div><div class="nc-body"><div class="label" style="color:var(--tint)">Gleich geht's los</div><h2>Jonathan erstellt deinen Plan</h2><div class="small muted">Bis dahin: Starte ein Programm unter „Übungen“.</div><button class="btn" data-tab="uebungen">Programme ansehen</button></div></div>`;
+  if (open.length) {
+    const t = open[0], f = t.exercises[0] ? EXMAP[t.exercises[0].ex] : (guessEx(t) ? EXMAP[guessEx(t)] : null), hasEx = t.exercises.length > 0;
+    return `<div class="nextcard"><div class="nc-media">${f ? exMedia(f, itemMuscles(t)) : ''}</div><div class="nc-body"><div class="label" style="color:var(--tint)">Als Nächstes</div><h2>${esc(t.title)}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><span class="chip ${t.kind}">${KINDS[t.kind]}</span>${t.min ? `<span class="chip">${t.min} Min</span>` : ''}${hasEx ? `<span class="chip">${t.exercises.length} Übungen</span>` : ''}</div><button class="btn" data-act="${hasEx ? 'openitem' : 'toggle'}" data-id="${t.id}">${hasEx ? 'Training starten' : 'Erledigt abhaken'}</button></div></div>`;
+  }
+  if (items.length) return `<div class="nextcard done"><div class="nc-icon ok">✓</div><div class="nc-body"><div class="label" style="color:var(--done)">Tagesziel geschafft</div><h2>Stark, alles erledigt!</h2><div class="small muted">Erholung gehört dazu. Lust auf mehr? Unten wartet ein Programm.</div></div></div>`;
+  for (let i = 1; i <= 7; i++){ const d = addDays(T, i), it = c.plan[dayKey(d)] || []; if (it.length) return `<div class="nextcard"><div class="nc-icon">🌙</div><div class="nc-body"><div class="label" style="color:var(--tint)">Heute Ruhetag</div><h2>${i === 1 ? 'Morgen' : DAYNAMES[dayKey(d)]}: ${esc(it[0].title)}</h2><div class="small muted">Erholung macht dich stärker. Ein lockerer Spaziergang tut trotzdem gut.</div><button class="btn ghost" data-tab="woche">Woche ansehen</button></div></div>`; }
+  return '';
+}
+function streakLine(c){
+  const w = weekStreak(c);
+  return `<div class="streakline"><span class="flame" aria-hidden="true"></span><span><b class="tk-num">${w.n}</b> ${w.n === 1 ? 'Woche' : 'Wochen'} in Folge</span><span class="muted">· diese Woche ${Math.min(w.thisWeek, 99)}/${w.goal}</span><span class="joker ${w.jokerLeft ? '' : 'used'}" title="Ein Joker pro Monat rettet eine schwache Woche">${w.jokerLeft ? '🃏 Joker bereit' : '🃏 Joker genutzt'}</span></div>`;
+}
 function viewHeute(c){
   const T = today(), items = c.plan[dayKey(T)] || [], done = c.done[iso(T)] || [];
   const pct = items.length ? Math.round(items.filter(t => done.includes(t.id)).length / items.length * 100) : 100;
@@ -133,17 +184,16 @@ function viewHeute(c){
   return `${head(c, null, DAYNAMES[dayKey(T)] + ', ' + T.toLocaleDateString('de-DE',{day:'numeric',month:'long'}))}<div class="stack">
   ${strip(c)}
   ${due ? `<div class="reminder"><b>Erinnerung:</b> ${open.map(t => esc(t.title)).join(', ')} ${open.length===1?'wartet':'warten'} noch auf dich.</div>` : ''}
-  <div class="card">${tempoBars(pct, weekMinutes(c), activeDays(c))}</div>
-  <div class="small muted" style="padding-inline:4px">${msg} · ${streak(c)} ${streak(c) === 1 ? 'Tag' : 'Tage'} in Folge aktiv</div>
+  ${nextCard(c)}
+  <div class="card stack" style="gap:12px">${tempoBars(pct, weekMinutes(c), activeDays(c))}${streakLine(c)}</div>
   ${c.p.coach_note ? `<div class="coachmsg"><span class="avatar">J</span><div style="min-width:0"><div class="small" style="font-weight:600">Jonathan</div><div>${esc(c.p.coach_note)}</div></div></div>` : ''}
-  <div class="section"><h2>Dein Programm</h2><span class="small muted">${items.length} ${items.length === 1 ? 'Einheit' : 'Einheiten'}</span></div>
-  ${items.length ? `<div class="list">${items.map(t => taskBtn(t, done.includes(t.id))).join('')}</div>` : `<div class="card muted">${noPlan ? 'Jonathan erstellt gerade deinen persönlichen Plan.' : 'Für heute ist nichts geplant.'}</div>`}
+  ${items.length ? `<div class="section"><h2>Dein Programm</h2><span class="small muted">${msg}</span></div><div class="list">${items.map(t => taskBtn(t, done.includes(t.id))).join('')}</div>` : ''}
   ${Object.keys(lv).length ? `<div class="section"><h2>Heute trainiert</h2></div><div class="card stack">${BODY.pair(lv)}${muscleChips(lv)}</div>` : ''}
   <div class="section"><h2>${items.length ? 'Lust auf mehr?' : 'Für deinen freien Tag'}</h2><button class="btn link" data-tab="uebungen">Alle</button></div>${routineCard(sugg)}
   ${ex.length ? `<div class="card stack" style="gap:8px"><div class="label">Extra heute</div>${ex.map(x => `<div class="row between"><span>${esc(x.title)}</span><span class="row" style="gap:6px"><span class="chip">${x.min} Min</span><button class="btn link" style="color:var(--danger)" data-act="delextra" data-id="${x.id}">Löschen</button></span></div>`).join('')}</div>` : ''}
-  <details class="card"><summary style="font-weight:700;cursor:pointer;min-height:28px">+ Eigene Extra-Einheit eintragen</summary>
-   <form class="stack sheet" data-form="extra" style="margin-top:12px"><div class="formrow"><label class="field"><span class="small muted">Was hast du gemacht?</span><input id="exTitle" required maxlength="80" placeholder="z. B. Schwimmen, Wandern"></label><label class="field" style="flex:0 0 110px"><span class="small muted">Minuten</span><input id="exMin" type="number" min="1" max="600" value="30" required></label></div><button class="btn">Speichern</button></form></details>
-  <div class="card row between"><div><div class="label">Erinnerung</div><div>Täglich ab <b>${esc(rem)}</b> Uhr, falls noch etwas offen ist</div></div><input id="remTime" type="time" value="${esc(rem)}" style="width:auto" aria-label="Uhrzeit der Erinnerung"></div>
+  <details class="card"><summary style="font-weight:600;cursor:pointer;min-height:28px">Extra-Einheit & Erinnerung</summary>
+   <form class="stack sheet" data-form="extra" style="margin-top:12px"><div class="label">Eigene Extra-Einheit</div><div class="formrow"><label class="field"><span class="small muted">Was hast du gemacht?</span><input id="exTitle" required maxlength="80" placeholder="z. B. Schwimmen, Wandern"></label><label class="field" style="flex:0 0 110px"><span class="small muted">Minuten</span><input id="exMin" type="number" min="1" max="600" value="30" required></label></div><button class="btn">Speichern</button></form>
+   <div class="row between sheet" style="margin-top:12px"><div><div class="label">Erinnerung</div><div>Täglich ab <b>${esc(rem)}</b> Uhr, falls noch etwas offen ist</div></div><input id="remTime" type="time" value="${esc(rem)}" style="width:auto" aria-label="Uhrzeit der Erinnerung"></div></details>
   </div>`;
 }
 // Wochenansicht: Tag antippen → kurze Übersicht der Übungen (Antippen einer Übung öffnet die Anleitung)
@@ -237,11 +287,12 @@ function badgesFor(c){
   const {pct} = goalPct(c), st = streak(c), ex = Object.values(c.extras).flat().length, aus = countDone(c,'ausdauer'), all = countDone(c);
   return [
    {t:'Erster Haken', d:'Die erste Einheit erledigt', got: all >= 1, m:'1'},
-   {t:'Dranbleiber', d:'3 Tage in Folge aktiv', got: st >= 3, m:'3'},
+   {t:'Dranbleiber', d:'3 Wochen in Folge Wochenziel', got: weekStreak(c).n >= 3, m:'3'},
    {t:'Wochensieger', d:'Eine ganze Woche komplett', got: fullWeeks(c) >= 1, m:'W'},
    {t:'Frischluft', d:'10 Ausdauer-Einheiten', got: aus >= 10, m:'10'},
    {t:'Extra-Meile', d:'Eine Extra-Einheit gemacht', got: ex >= 1, m:'+'},
    {t:'Workout-Profi', d:'5 Trainings mit Sätzen absolviert', got: c.workouts >= 5, m:'5'},
+   {t:'Rekordjäger', d:'Einen neuen Gewichts-Rekord geschafft', got: (c.history || []).some(h => h.details.prs && Object.keys(h.details.prs).length), m:'PR'},
    {t:'Halbzeit', d:'50 % vom Ziel geschafft', got: pct >= 50, m:'½'},
    {t:'Ziel erreicht', d:'Dein großes Ziel geschafft', got: pct >= 100, m:'★'}];
 }
@@ -265,7 +316,7 @@ function exDetail(e){
   ${OV.back ? '' : '<button class="btn" data-act="startsingle" data-id="' + e.id + '">Diese Übung jetzt machen</button>'}</div>`;
 }
 function startWorkout(title, list, src){
-  OV = {type:'workout', title, src, start: Date.now(), list: list.map(it => ({ex: it.ex, sets: +it.sets || 3, reps: String(it.reps || '10'), done: Array(+it.sets || 3).fill(false), kg: Array(+it.sets || 3).fill('')})).filter(it => EXMAP[it.ex])};
+  OV = {type:'workout', title, src, start: Date.now(), prs: {}, best: Object.fromEntries(list.map(it => [it.ex, C ? bestKg(C, it.ex) : 0])), list: list.map(it => ({ex: it.ex, sets: +it.sets || 3, reps: String(it.reps || '10'), done: Array(+it.sets || 3).fill(false), kg: Array(+it.sets || 3).fill('')})).filter(it => EXMAP[it.ex])};
   openOverlay();
 }
 function viewWorkout(){
@@ -275,9 +326,9 @@ function viewWorkout(){
   <h1>${esc(W.title)}</h1>
   <div class="progress"><span style="width:${total ? dn/total*100 : 0}%"></span></div>
   <div class="card stack"><div class="label">Diese Muskeln trainierst du</div>${BODY.pair(lv)}</div>
-  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${exMedia(e, muscleLevels([e.id]))}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div><button class="btn ghost" style="min-height:38px;padding:6px 12px;margin-top:6px" data-act="exinfo" data-id="${e.id}">So geht's</button></div></div>
+  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${exMedia(e, muscleLevels([e.id]))}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div>${(() => { const l = C ? lastFor(C, it.ex) : null; return l ? `<div class="lastline">Letztes Mal: ${l.kg.length ? '<b>' + fmt(Math.max(...l.kg)) + ' kg</b> · ' : ''}${l.done} ${l.done === 1 ? 'Satz' : 'Sätze'} · ${shortDate(l.day)}</div>` : ''; })()}${W.prs[it.ex] ? `<div class="prbadge">Neuer Rekord · ${fmt(W.prs[it.ex].kg)} kg</div>` : ''}<button class="btn ghost" style="min-height:38px;padding:6px 12px;margin-top:6px" data-act="exinfo" data-id="${e.id}">So geht's</button></div></div>
     <div class="stack" style="gap:8px"><div class="setrow small muted"><span>Satz</span><span>${sec ? 'Zeit' : 'Wdh.'}</span><span>${e.ort === 'studio' ? 'kg' : ''}</span><span></span></div>
-    ${it.done.map((d, s) => `<div class="setrow"><span class="n">${s+1}</span><span>${esc(it.reps)}</span>${e.ort === 'studio' ? `<input data-kg="${i}-${s}" inputmode="decimal" value="${esc(it.kg[s])}" aria-label="Gewicht Satz ${s+1}">` : '<span></span>'}<button class="setbtn ${d ? 'on' : ''}" data-act="set" data-id="${i}-${s}" aria-label="Satz ${s+1} erledigt" aria-pressed="${d}"></button></div>`).join('')}</div></div>`; }).join('')}
+    ${it.done.map((d, s) => `<div class="setrow"><span class="n">${s+1}</span><span>${esc(it.reps)}</span>${e.ort === 'studio' ? `<input data-kg="${i}-${s}" inputmode="decimal" value="${esc(it.kg[s])}" placeholder="${(() => { const l = C ? lastFor(C, it.ex) : null; return l && l.kg.length ? fmt(l.kg[Math.min(s, l.kg.length - 1)]) : ''; })()}" aria-label="Gewicht Satz ${s+1}">` : '<span></span>'}<button class="setbtn ${d ? 'on' : ''}" data-act="set" data-id="${i}-${s}" aria-label="Satz ${s+1} erledigt" aria-pressed="${d}"></button></div>`).join('')}</div></div>`; }).join('')}
   <button class="btn" data-act="finish">${dn === total ? 'Training abschließen' : 'Training beenden'}</button>
   ${W.src.item ? '<button class="btn link" data-act="quickdone">Ohne Sätze abhaken</button>' : ''}</div>`;
 }
@@ -285,8 +336,16 @@ function viewSummary(){
   const S = OV, lv = muscleLevels(S.list.filter(x => x.done.some(Boolean)));
   return `<div class="wrap stack" style="padding-top:28px"><div class="label" style="color:var(--tint)">Geschafft</div><h1>${esc(S.title)}</h1>
   <div class="stats"><div class="stat"><b>${S.min}</b><span class="small muted">Minuten</span></div><div class="stat"><b>${S.sets}</b><span class="small muted">Sätze</span></div><div class="stat"><b>${S.exCount}</b><span class="small muted">Übungen</span></div></div>
+  ${Object.keys(S.prs || {}).length ? `<div class="card stack" style="gap:8px"><div class="label" style="color:var(--tint)">Neue Rekorde</div>${Object.entries(S.prs).map(([ex, r]) => `<div class="row between"><span>${esc(EXMAP[ex].name)}</span><span class="prbadge">${fmt(r.kg)} kg · +${fmt(r.plus)}</span></div>`).join('')}</div>` : ''}
+  <div class="card stack"><div class="label">Wie war's?</div>
+   <div class="small muted">Wie anstrengend? 1 = sehr leicht, 10 = maximal</div>
+   <div class="rpe">${Array.from({length: 10}, (_, n) => `<button class="rpeb${S.feel.rpe === n+1 ? ' on' : ''}" data-act="feelrpe" data-id="${n+1}" aria-pressed="${S.feel.rpe === n+1}">${n+1}</button>`).join('')}</div>
+   <div class="small muted">Wie fühlst du dich?</div>
+   <div class="moods">${MOODS.map(([k, e, l]) => `<button class="moodb${S.feel.mood === k ? ' on' : ''}" data-act="feelmood" data-id="${k}" aria-pressed="${S.feel.mood === k}"><span>${e}</span>${l}</button>`).join('')}</div>
+   <label class="field"><span class="small muted">Nachricht an Jonathan (optional)</span><input id="feelNote" maxlength="300" placeholder="z. B. Knie hat leicht gezwickt"></label>
+   <button class="btn" data-act="feelsave">Rückmeldung senden</button></div>
   <div class="card hi stack"><div class="label">Trainierte Muskeln</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
-  <button class="btn" data-act="closeov">Fertig</button></div>`;
+  <button class="btn link" data-act="closeov">Ohne Rückmeldung schließen</button></div>`;
 }
 function openOverlay(){ document.body.style.overflow = 'hidden'; document.getElementById('layer').innerHTML = '<div class="overlay" id="ov"></div><div id="timerbox"></div>'; renderOverlay(); }
 function closeOverlay(){ OV = null; stopTimer(); document.body.style.overflow = ''; document.getElementById('layer').innerHTML = ''; }
@@ -307,24 +366,35 @@ function tickTimer(){
   if (left <= 0) { const cb = timer.onDone; stopTimer(); if (navigator.vibrate) navigator.vibrate(200); if (cb) cb(); }
 }
 function markSet(i, s){
-  const it = OV.list[i]; it.done[s] = !it.done[s]; renderOverlay();
+  const it = OV.list[i]; it.done[s] = !it.done[s];
+  if (it.done[s]) { const kg = parseNum(it.kg[s]), best = OV.best[it.ex] || 0;
+    if (kg != null && best > 0 && kg > best) { OV.best[it.ex] = kg; OV.prs[it.ex] = {kg, plus: kg - best}; toast(`Neuer Rekord! ${EXMAP[it.ex].name} +${fmt(kg - best)} kg`); celebrate(); } }
+  renderOverlay();
   if (it.done[s]) startTimer('rest', EXMAP[it.ex].kat === 'mobility' ? 20 : 60);
 }
 async function finishWorkout(){
   const W = OV, sets = W.list.reduce((a,x) => a + x.done.filter(Boolean).length, 0);
   if (!sets) { toast('Hake mindestens einen Satz ab oder brich ab.'); return; }
   const min = Math.max(1, Math.round((Date.now() - W.start) / 60000));
-  const details = {sets: W.list.map(x => ({ex: x.ex, reps: x.reps, done: x.done.filter(Boolean).length, kg: x.kg.filter(Boolean)}))};
-  const k = iso(today());
+  const details = {sets: W.list.map(x => ({ex: x.ex, reps: x.reps, done: x.done.filter(Boolean).length, kg: x.kg.filter(Boolean)})), prs: W.prs};
+  const k = iso(today()); let ref;
   if (W.src.item) {
-    await q(sb.from('checkins').upsert({client_id: me.id, item_id: W.src.item, day: k, details}, {onConflict: 'item_id,day'}));
+    await q(sb.from('checkins').upsert({client_id: me.id, item_id: W.src.item, day: k, details}, {onConflict: 'item_id,day'})); ref = {item: W.src.item, day: k};
   } else {
-    await q(sb.from('extras').insert({client_id: me.id, day: k, title: W.title, minutes: min, details}));
+    const row = await q(sb.from('extras').insert({client_id: me.id, day: k, title: W.title, minutes: min, details}).select('id').single()); ref = {extra: row.id};
   }
   C = await loadClient(me.id);
   stopTimer();
-  OV = {type:'summary', title: W.title, list: W.list, min: W.src.item ? (findItem(W.src.item)?.min || min) : min, sets, exCount: W.list.filter(x => x.done.some(Boolean)).length};
-  renderOverlay(); document.getElementById('ov').scrollTop = 0; render();
+  OV = {type:'summary', title: W.title, list: W.list, min: W.src.item ? (findItem(W.src.item)?.min || min) : min, sets, exCount: W.list.filter(x => x.done.some(Boolean)).length, prs: W.prs, details, ref, feel: {}};
+  renderOverlay(); document.getElementById('ov').scrollTop = 0; render(); celebrate();
+}
+async function saveFeel(){
+  const S = OV; if (!S.feel.rpe && !S.feel.mood) { toast('Tipp kurz an, wie anstrengend es war.'); return; }
+  const note = (document.getElementById('feelNote') || {}).value || '';
+  const details = {...S.details, feel: {rpe: S.feel.rpe || null, mood: S.feel.mood || null, note: note.trim().slice(0, 300)}};
+  if (S.ref.item) await q(sb.from('checkins').update({details}).eq('item_id', S.ref.item).eq('day', S.ref.day));
+  else await q(sb.from('extras').update({details}).eq('id', S.ref.extra));
+  C = await loadClient(me.id); closeOverlay(); render(); toast('Danke! Jonathan sieht deine Rückmeldung.');
 }
 function findItem(id){ for (const k of DAYS) { const t = C.plan[k].find(x => x.id === id); if (t) return t; } return null; }
 
@@ -335,7 +405,7 @@ function viewCoach(){
   return `<div class="top"><div><div class="label">Coach-Bereich</div><h1>Deine Kunden</h1></div><button class="avatar" data-act="menu" aria-label="Abmelden" style="color:var(--warm)">J</button></div>
   <div class="stack">
   ${pending.length ? `<div class="card stack"><div class="label">Neue Anmeldungen</div>${pending.map(c => `<div class="row between" style="flex-wrap:wrap"><div style="min-width:0"><b>${esc(c.p.name||'Ohne Namen')}</b><div class="small muted" style="word-break:break-all">${esc(c.p.email)}</div></div><div class="row" style="gap:6px"><select id="type-${c.p.id}" style="width:auto">${TYPES.map(t => `<option>${t}</option>`).join('')}</select><button class="btn" data-act="approve" data-id="${c.p.id}">Freischalten</button></div></div>`).join('<hr class="sep">')}</div>` : ''}
-  ${active.map(c => { const r = weekRate(c), {pct} = goalPct(c); return `<button class="pick" data-act="coachsel" data-id="${c.p.id}"><span class="avatar">${esc((c.p.name||'?')[0].toUpperCase())}</span><span class="t-body"><b>${esc(c.p.name)}${c.p.age?', '+c.p.age:''}</b> <span class="chip">${esc(c.p.type_label)}</span><span class="small muted" style="display:block;margin-top:4px">Diese Woche ${r}% · ${weekMinutes(c)} Min · Ziel ${pct}%</span><span class="bar" style="display:block;margin-top:8px;height:8px"><span style="width:${r}%;${r<50?'background:var(--warm)':''}"></span></span></span></button>`; }).join('') || (pending.length ? '' : `<div class="card stack"><h2>Noch keine Kunden</h2><p class="muted" style="margin:0">Schick deinen Kunden den Link zur App. Mit Einladungscode sind sie sofort freigeschaltet, sonst erscheinen sie hier unter „Neue Anmeldungen“.</p></div>`)}
+  ${active.map(c => { const r = weekRate(c), {pct} = goalPct(c); return `<button class="pick" data-act="coachsel" data-id="${c.p.id}"><span class="avatar">${esc((c.p.name||'?')[0].toUpperCase())}</span><span class="t-body"><b>${esc(c.p.name)}${c.p.age?', '+c.p.age:''}</b> <span class="chip">${esc(c.p.type_label)}</span><span class="small muted" style="display:block;margin-top:4px">Diese Woche ${r}% · ${weekMinutes(c)} Min · Ziel ${pct}%${(() => { const f = [...(c.history || [])].reverse().find(h => h.details.feel); return f ? ` · zuletzt ${moodOf(f.details.feel.mood)}${f.details.feel.rpe ? ' ' + f.details.feel.rpe + '/10' : ''}` : ''; })()}</span><span class="bar" style="display:block;margin-top:8px;height:8px"><span style="width:${r}%;${r<50?'background:var(--warm)':''}"></span></span></span></button>`; }).join('') || (pending.length ? '' : `<div class="card stack"><h2>Noch keine Kunden</h2><p class="muted" style="margin:0">Schick deinen Kunden den Link zur App. Mit Einladungscode sind sie sofort freigeschaltet, sonst erscheinen sie hier unter „Neue Anmeldungen“.</p></div>`)}
   <div class="card stack"><div class="label">Einladungscodes</div><p class="small muted" style="margin:0">Wer bei der Registrierung einen aktiven Code eingibt, ist sofort freigeschaltet.</p>${codes.map(k => `<form class="row" data-form="code" data-id="${k.id}" style="flex-wrap:wrap"><label class="field" style="min-width:120px"><span class="small muted">${esc(k.type_label)}</span><input id="code-${k.id}" value="${esc(k.code)}" required maxlength="30" autocapitalize="characters"></label><button class="btn" style="align-self:flex-end">Speichern</button><button type="button" class="btn ghost" style="align-self:flex-end" data-act="codeactive" data-id="${k.id}">${k.active ? 'Aktiv' : 'Aus'}</button></form>`).join('')}</div>
   <div class="card stack"><div class="label">Link für Kunden</div><div style="word-break:break-all"><b>${esc(location.origin + location.pathname)}</b></div><button class="btn ghost" data-act="copylink">Link kopieren</button></div>
   <button class="btn ghost" data-act="logout">Abmelden</button></div>`;
@@ -358,6 +428,7 @@ function viewCoachEdit(c){
   return `<div class="top"><button class="btn ghost" data-act="coachback">← Kunden</button><span class="avatar">${esc((p.name||'?')[0].toUpperCase())}</span></div>
   <div class="stack"><h1>${esc(p.name)}</h1>
   <button class="btn" data-act="startpreview" data-id="${p.id}">App als ${esc(p.name)} ansehen</button>
+  ${(c.history || []).length ? `<div class="card stack" style="gap:10px"><div class="label">Letzte Trainings & Rückmeldungen</div>${[...c.history].reverse().slice(0, 6).map(h => { const f = h.details.feel || {}, prs = Object.entries(h.details.prs || {}), sets = (h.details.sets || []).reduce((a, x) => a + (x.done || 0), 0); return `<div class="fb"><div class="row between"><b>${esc(h.title)}</b><span class="small muted">${shortDate(h.day)}</span></div><div class="small muted">${sets} Sätze${f.rpe ? ' · Anstrengung ' + f.rpe + '/10' : ''}${f.mood ? ' · ' + moodOf(f.mood) : ''}${prs.length ? ' · Rekord: ' + prs.map(([ex, r]) => esc(EXMAP[ex] ? EXMAP[ex].name : ex) + ' ' + fmt(r.kg) + ' kg').join(', ') : ''}</div>${f.note ? `<div class="fbnote">„${esc(f.note)}“</div>` : ''}</div>`; }).join('<hr class="sep">')}</div>` : ''}
   <div class="stats"><div class="stat"><b>${weekRate(c)}%</b><span class="small muted">diese Woche</span></div><div class="stat"><b>${weekMinutes(c)}</b><span class="small muted">aktive Min.</span></div><div class="stat"><b>${streak(c)}</b><span class="small muted">Tage Serie</span></div></div>
   <form class="card stack" data-form="note"><div class="label">Nachricht an ${esc(p.name)}</div><textarea id="noteTxt" rows="3" maxlength="500">${esc(p.coach_note)}</textarea><button class="btn">Nachricht speichern</button></form>
   <div class="card stack"><div class="label">Fertiger Trainingsplan</div><p class="small muted" style="margin:0">Legt den 5-Tage-Split komplett an: Mo Brust + Rücken, Di Beine + Rumpf, Mi Schultern + Arme, Fr Oberkörper, Sa Unterkörper – mit allen Übungen, Sätzen und Wiederholungen. Danach kannst du alles einzeln anpassen.</p><button class="btn ghost" data-act="addsplit">5-Tage-Split anlegen</button></div>
@@ -434,7 +505,7 @@ document.addEventListener('click', async e => {
   try {
     if (a === 'startpreview') { C = roster.find(x => x.p.id === id); preview = true; tab = 'heute'; render(); scrollTo(0,0); return; }
     if (a === 'endpreview') { preview = false; C = null; closeOverlay(); render(); scrollTo(0,0); return; }
-    if (preview && ['toggle','finish','quickdone','delextra'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
+    if (preview && ['toggle','finish','quickdone','delextra','feelsave'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
     // Vollbild
     if (a === 'openex') { OV = {type:'ex', id}; openOverlay(); return; }
     if (a === 'exinfo') { OV.back = {...OV}; const back = OV.back; OV = {type:'ex', id, back}; renderOverlay(); document.getElementById('ov').scrollTop = 0; return; }
@@ -450,6 +521,9 @@ document.addEventListener('click', async e => {
     if (a === 'timerplus') { if (timer) { timer.end += 15000; tickTimer(); } return; }
     if (a === 'timerskip') { const cb = timer && timer.mode === 'work' ? timer.onDone : null; stopTimer(); if (cb) cb(); return; }
     if (a === 'finish') { await finishWorkout(); return; }
+    if (a === 'feelrpe') { const note = (document.getElementById('feelNote') || {}).value; OV.feel.rpe = +id; renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
+    if (a === 'feelmood') { const note = (document.getElementById('feelNote') || {}).value; OV.feel.mood = id; renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
+    if (a === 'feelsave') { await saveFeel(); return; }
     if (a === 'quickdone') { const k = iso(today()); (C.done[k] ||= []).includes(OV.src.item) || C.done[k].push(OV.src.item); await q(sb.from('checkins').upsert({client_id: me.id, item_id: OV.src.item, day: k}, {onConflict: 'item_id,day'})); closeOverlay(); toast('Abgehakt. Weiter so!'); render(); return; }
     // Übungen-Seite
     if (a === 'exfilter') { exFilter = id; }
@@ -462,7 +536,7 @@ document.addEventListener('click', async e => {
     if (a === 'toggle') {
       const k = iso(today()), arr = C.done[k] ||= [], i = arr.indexOf(id);
       if (i >= 0) { arr.splice(i,1); render(); await q(sb.from('checkins').delete().eq('item_id', id).eq('day', k)); }
-      else { arr.push(id); const items = C.plan[dayKey(today())]; toast(arr.length === items.length ? 'Tagesziel geschafft!' : 'Abgehakt. Weiter so!'); render(); await q(sb.from('checkins').insert({client_id: me.id, item_id: id, day: k})); }
+      else { arr.push(id); const items = C.plan[dayKey(today())]; toast(arr.length === items.length ? 'Tagesziel geschafft!' : 'Abgehakt. Weiter so!'); render(); if (arr.length === items.length) celebrate(); await q(sb.from('checkins').insert({client_id: me.id, item_id: id, day: k})); }
       return;
     }
     if (a === 'delextra') { await q(sb.from('extras').delete().eq('id', id)); C = await loadClient(me.id); toast('Gelöscht'); }
