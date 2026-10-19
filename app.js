@@ -332,6 +332,104 @@ async function addEat(entry){
   if (before < goal && eatenOf(nd) >= goal) { celebrate(); toast('Eiweißziel geschafft!'); } else toast(`+${entry.g} g Eiweiß`);
   await saveDayCheck(nd);
 }
+// ---------- 360°-Körper: eigenes Dreh-Video → 36 Bilder (6×6-Raster), privat in Supabase Storage ----------
+const SPIN = {};                     // Kunden-ID → {loading} | {none} | {url}
+const SPIN_N = 36, SPIN_COLS = 6, SPIN_W = 300, SPIN_H = 540, SPIN_SCAN = 48;
+const spinPath = id => id + '/dreh.jpg';
+function rerenderKeep(){ if (OV) return; const y = scrollY; render(); scrollTo(0, y); }
+async function loadSpin(id){
+  if (!id || SPIN[id]) return; SPIN[id] = {loading: true};
+  try { const {data, error} = await sb.storage.from('koerper').download(spinPath(id)); SPIN[id] = error || !data ? {none: true} : {url: URL.createObjectURL(data)}; }
+  catch (e) { SPIN[id] = {none: true}; }
+  rerenderKeep();
+}
+function spinUpload(id, label){ return `<label class="btn ghost spinup"><input type="file" accept="video/*" data-spinfile="${id}" hidden>${label}</label>`; }
+function spinView(id, own){
+  const sp = SPIN[id]; loadSpin(id);
+  if (!sp || sp.loading) return `<div class="spin loading"><span class="small muted">Lädt …</span></div>`;
+  if (sp.url) return `<div class="spinwrap"><div class="spin" data-spin="${id}" style="background-image:url(${sp.url})" role="img" aria-label="${own ? 'Dein Körper' : 'Körper'} in 360°, zum Drehen wischen"></div><span class="spinhint">↔ Wischen zum Drehen</span></div>${spinUpload(id, 'Neu aufnehmen')}`;
+  return null;
+}
+function spinInvite(id, own){
+  return `<div class="spinempty stack" style="gap:8px"><b>${own ? 'Sieh dich selbst in 360°' : '360°-Körper anlegen'}</b><div class="small muted">Handy hochkant hinstellen (2–3 m Abstand, Hüfthöhe), Sportkleidung, gutes Licht. Video starten und dich einmal langsam um dich selbst drehen – ca. 10 Sekunden. Die Bilder sieht nur ${own ? 'du und Jonathan' : 'der Kunde und du'}.</div>${spinUpload(id, '🎥 Dreh-Video auswählen')}</div>`;
+}
+function setFrame(el, f){ f = ((f % SPIN_N) + SPIN_N) % SPIN_N; el.dataset.f = f; el.style.backgroundPosition = `${(f % SPIN_COLS) * 100 / (SPIN_COLS - 1)}% ${Math.floor(f / SPIN_COLS) * 100 / (SPIN_COLS - 1)}%`; }
+// Nach jedem Rendern: Startbild setzen und beim ersten Anzeigen einmal langsam drehen
+function initSpins(){
+  document.querySelectorAll('.spin[data-spin]').forEach(el => {
+    const sp = SPIN[el.dataset.spin]; if (!sp) return;
+    setFrame(el, sp.f || 0);
+    if (!sp.intro) { sp.intro = true; const t0 = performance.now(); (function step(t){ if (el.dataset.drag || !el.isConnected) return; const k = Math.min(1, (t - t0) / 2600); setFrame(el, Math.round(k * SPIN_N)); sp.f = +el.dataset.f; if (k < 1) requestAnimationFrame(step); })(t0); }
+  });
+}
+let spinDrag = null;
+document.addEventListener('pointerdown', e => { const el = e.target.closest && e.target.closest('.spin[data-spin]'); if (!el) return; el.dataset.drag = '1'; spinDrag = {el, x: e.clientX, f: +el.dataset.f || 0}; try { el.setPointerCapture(e.pointerId); } catch (_) {} });
+document.addEventListener('pointermove', e => { if (!spinDrag) return; setFrame(spinDrag.el, spinDrag.f + Math.round((e.clientX - spinDrag.x) / 8)); const sp = SPIN[spinDrag.el.dataset.spin]; if (sp) sp.f = +spinDrag.el.dataset.f; });
+['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, () => { if (spinDrag) delete spinDrag.el.dataset.drag; spinDrag = null; }));
+
+// Video im Browser in Bilder zerlegen (nichts verlässt das Handy außer dem fertigen Bild)
+function seekTo(v, t){ return new Promise(res => { let done = false; const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); res(); }; v.addEventListener('seeked', fin); setTimeout(fin, 3000); v.currentTime = Math.min(Math.max(0, t), Math.max(0, v.duration - 0.05)); }); }
+function drawCover(ctx, v, x, y, w, h){ const vw = v.videoWidth, vh = v.videoHeight, s = Math.max(w / vw, h / vh), sw = w / s, sh = h / s; ctx.drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, w, h); }
+async function startSpinMake(id, file){
+  OV = {type: 'spinmake', id, step: 'scan', p: 0, thumbs: [], a: 0, b: SPIN_SCAN - 1}; openOverlay();
+  try {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.src = URL.createObjectURL(file);
+    await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error('video')); v.load(); });
+    try { await v.play(); v.pause(); } catch (_) {}
+    if (!v.duration || !isFinite(v.duration)) throw new Error('dauer');
+    OV.v = v; const c = document.createElement('canvas'); c.width = 108; c.height = 192; const ctx = c.getContext('2d', {willReadFrequently: true}); const grays = [];
+    for (let i = 0; i < SPIN_SCAN; i++) {
+      if (!OV || OV.type !== 'spinmake') return;
+      await seekTo(v, v.duration * (i + 0.5) / SPIN_SCAN); drawCover(ctx, v, 0, 0, 108, 192);
+      OV.thumbs.push(c.toDataURL('image/jpeg', 0.6));
+      const px = ctx.getImageData(0, 0, 108, 192).data, g = new Float32Array(108 * 192); for (let k = 0; k < g.length; k++) g[k] = (px[k*4] + px[k*4+1] + px[k*4+2]) / 3; grays.push(g);
+      OV.p = Math.round((i + 1) / SPIN_SCAN * 100); renderOverlay();
+    }
+    // Drehung erkennen: Bewegung zwischen benachbarten Bildern; ruhiges Stehen am Anfang/Ende wird abgeschnitten
+    const diff = grays.map((g, i) => { if (!i) return 0; let s = 0; for (let k = 0; k < g.length; k++) s += Math.abs(g[k] - grays[i-1][k]); return s / g.length; });
+    // geglättet: längste zusammenhängende Bewegung = Drehung (Feinschliff per Schieberegler)
+    const sm = diff.map((x, i) => (diff[Math.max(1, i - 1)] + x + diff[Math.min(diff.length - 1, i + 1)]) / 3), thr = Math.max(...sm) * 0.4;
+    let a = 0, b = SPIN_SCAN - 1, best = 0;
+    for (let i = 1; i < sm.length; i++) { if (sm[i] <= thr) continue; let j = i; while (j + 1 < sm.length && sm[j + 1] > thr) j++; if (j - i > best) { best = j - i; a = i - 1; b = j; } i = j; }
+    if (best < 8) { a = 0; b = SPIN_SCAN - 1; }
+    Object.assign(OV, {step: 'trim', a, b}); renderOverlay(); spinPreview();
+  } catch (e) { console.error(e); if (OV) { OV.step = 'fail'; renderOverlay(); } }
+}
+function spinPreview(){
+  clearInterval(spinPreview.h); let i = 0;
+  spinPreview.h = setInterval(() => { const img = document.getElementById('spinPrev'); if (!OV || OV.type !== 'spinmake' || !img) { clearInterval(spinPreview.h); return; } const n = OV.b - OV.a + 1; img.src = OV.thumbs[OV.a + (i++ % n)]; }, 110);
+}
+async function saveSpin(){
+  const W = OV, v = W.v, d = v.duration, ta = d * (W.a + 0.5) / SPIN_SCAN, tb = d * (W.b + 0.5) / SPIN_SCAN;
+  W.step = 'build'; W.p = 0; renderOverlay();
+  const c = document.createElement('canvas'); c.width = SPIN_W * SPIN_COLS; c.height = SPIN_H * Math.ceil(SPIN_N / SPIN_COLS); const ctx = c.getContext('2d');
+  ctx.fillStyle = '#111'; ctx.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < SPIN_N; i++) {
+    if (!OV || OV.type !== 'spinmake') return;
+    await seekTo(v, ta + (tb - ta) * i / SPIN_N); drawCover(ctx, v, (i % SPIN_COLS) * SPIN_W, Math.floor(i / SPIN_COLS) * SPIN_H, SPIN_W, SPIN_H);
+    W.p = Math.round((i + 1) / SPIN_N * 90); renderOverlay();
+  }
+  const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.8));
+  W.step = 'upload'; renderOverlay();
+  const {error} = await sb.storage.from('koerper').upload(spinPath(W.id), blob, {upsert: true, contentType: 'image/jpeg', cacheControl: '60'});
+  if (error) throw error;
+  URL.revokeObjectURL(v.src); SPIN[W.id] = {url: URL.createObjectURL(blob)};
+  closeOverlay(); render(); toast('Dein 360°-Körper ist gespeichert');
+}
+function viewSpinMake(){
+  const W = OV, bar = p => `<div class="bar"><span style="width:${p}%"></span></div>`;
+  const top = `<div class="wrap stack" style="padding-top:28px"><div class="row between"><div class="label" style="color:var(--tint)">360°-Körper</div><button class="btn link" data-act="closeov">Abbrechen</button></div>`;
+  if (W.step === 'fail') return `${top}<h1>Das Video ließ sich nicht lesen</h1><p class="muted">Bitte nimm es nochmal mit der normalen Kamera-App auf (hochkant, ca. 10 Sekunden) und wähle es dann aus.</p><button class="btn" data-act="closeov">OK</button></div>`;
+  if (W.step === 'scan') return `${top}<h1>Video wird angeschaut …</h1>${bar(W.p)}<p class="small muted">Das passiert direkt auf deinem Handy.</p></div>`;
+  if (W.step === 'build' || W.step === 'upload') return `${top}<h1>${W.step === 'build' ? 'Bilder werden erstellt …' : 'Wird gespeichert …'}</h1>${bar(W.step === 'build' ? W.p : 95)}</div>`;
+  const t = i => (W.v.duration * (i + 0.5) / SPIN_SCAN).toFixed(1).replace('.', ',');
+  return `${top}<h1>Passt die Drehung?</h1>
+   <div class="spintrim"><img id="spinPrev" src="${W.thumbs[W.a]}" alt="Vorschau der Drehung"></div>
+   <p class="small muted" style="margin:0">Die Vorschau zeigt deine Drehung in Schleife. Falls am Anfang oder Ende noch Stehen dabei ist, hier verschieben:</p>
+   <label class="field"><span class="small muted">Start der Drehung: ${t(W.a)} s</span><input type="range" min="0" max="${SPIN_SCAN - 2}" value="${W.a}" data-spinrange="a"></label>
+   <label class="field"><span class="small muted">Wieder vorne: ${t(W.b)} s</span><input type="range" min="1" max="${SPIN_SCAN - 1}" value="${W.b}" data-spinrange="b"></label>
+   <button class="btn" data-act="spinsave">Speichern</button></div>`;
+}
 function viewHeute(c){
   const T = today(), items = c.plan[dayKey(T)] || [], done = c.done[iso(T)] || [];
   const pct = items.length ? Math.round(items.filter(t => done.includes(t.id)).length / items.length * 100) : 100;
@@ -426,8 +524,9 @@ function bodyCard(c, editable){
   const {v, first} = latestBody(c);
   const last = c.body.length ? c.body[c.body.length-1].day : null;
   const box = ([k,l,u]) => { const d = v[k] != null && first[k] != null ? v[k] - first[k] : 0; const cls = !d ? '' : LOWER_IS_BETTER.includes(k) ? (d < 0 ? 'good' : 'bad') : 'good'; return `<div class="mbox"><span class="small muted">${l}</span><b>${v[k] != null ? fmt(v[k]) + ' ' + u : '–'}</b>${d ? `<span class="delta ${cls}">${d > 0 ? '+' : ''}${fmt(d)} ${u} seit Start</span>` : ''}</div>`; };
+  const own = me && me.id === c.p.id, sv = spinView(c.p.id, own);
   return `<div class="card stack"><div class="row between"><div class="label">Körpervermessung</div>${last ? `<span class="small muted">zuletzt ${shortDate(last)}</span>` : ''}</div>
-   ${bodyPhoto(c, v)}
+   ${sv || bodyPhoto(c, v) + spinInvite(c.p.id, own || preview)}
    <div class="measures">${MEASURES.map(box).join('')}</div>
    ${c.body.length ? '' : `<p class="muted small" style="margin:0">${editable ? 'Noch keine Maße. Trag die Werte der Körpervermessung unten ein.' : 'Bei der nächsten Körpervermessung trägt Jonathan deine Maße hier ein. Du kannst sie auch selbst messen.'}</p>`}
    <details${editable ? ' open' : ''}><summary style="font-weight:700;cursor:pointer;min-height:28px">${editable ? 'Neue Messung eintragen' : '+ Selbst gemessen? Eintragen'}</summary>
@@ -512,10 +611,10 @@ function viewSummary(){
   <button class="btn link" data-act="closeov">Ohne Rückmeldung schließen</button></div>`;
 }
 function openOverlay(){ document.body.style.overflow = 'hidden'; document.getElementById('layer').innerHTML = '<div class="overlay" id="ov"></div><div id="timerbox"></div>'; renderOverlay(); }
-function closeOverlay(){ OV = null; stopTimer(); document.body.style.overflow = ''; document.getElementById('layer').innerHTML = ''; }
+function closeOverlay(){ clearInterval(spinPreview.h); OV = null; stopTimer(); document.body.style.overflow = ''; document.getElementById('layer').innerHTML = ''; }
 function renderOverlay(){
   const ov = document.getElementById('ov'); if (!ov || !OV) return;
-  ov.innerHTML = OV.type === 'ex' ? exDetail(EXMAP[OV.id]) : OV.type === 'workout' ? viewWorkout() : OV.type === 'week' ? viewWeekCheck() : OV.type === 'recipe' ? viewRecipe(RECIPES.find(r => r.id === OV.id)) : viewSummary();
+  ov.innerHTML = OV.type === 'ex' ? exDetail(EXMAP[OV.id]) : OV.type === 'workout' ? viewWorkout() : OV.type === 'week' ? viewWeekCheck() : OV.type === 'recipe' ? viewRecipe(RECIPES.find(r => r.id === OV.id)) : OV.type === 'spinmake' ? viewSpinMake() : viewSummary();
 }
 // Pausen- und Satz-Timer
 function startTimer(mode, secs, onDone){
@@ -572,6 +671,7 @@ function viewCoach(){
   ${active.length ? (() => { const n = {rot: 0, gelb: 0, gruen: 0}; active.forEach(c => n[ampel(c).lvl]++); return `<div class="ampelsum"><span><i class="adot rot"></i><b>${n.rot}</b> brauchen dich</span><span><i class="adot gelb"></i><b>${n.gelb}</b> im Blick</span><span><i class="adot gruen"></i><b>${n.gruen}</b> laufen</span></div>`; })() : ''}
   ${active.map(c => { const r = weekRate(c), {pct} = goalPct(c), am = ampel(c); return `<button class="pick" data-act="coachsel" data-id="${c.p.id}"><span class="avatar" style="position:relative">${esc((c.p.name||'?')[0].toUpperCase())}<i class="adot ${am.lvl} onav" aria-hidden="true"></i></span><span class="t-body"><b>${esc(c.p.name)}${c.p.age?', '+c.p.age:''}</b> <span class="chip">${esc(c.p.type_label)}</span><span class="ampelwhy ${am.lvl}">${esc(am.why.join(' · '))}</span><span class="small muted" style="display:block;margin-top:4px">Diese Woche ${r}% · ${weekMinutes(c)} Min · Ziel ${pct}%${(() => { const f = [...(c.history || [])].reverse().find(h => h.details.feel); return f ? ` · zuletzt ${moodOf(f.details.feel.mood)}${f.details.feel.rpe ? ' ' + f.details.feel.rpe + '/10' : ''}` : ''; })()}</span><span class="bar" style="display:block;margin-top:8px;height:8px"><span style="width:${r}%;${r<50?'background:var(--warm)':''}"></span></span></span></button>`; }).join('') || (pending.length ? '' : `<div class="card stack"><h2>Noch keine Kunden</h2><p class="muted" style="margin:0">Schick deinen Kunden den Link zur App. Mit Einladungscode sind sie sofort freigeschaltet, sonst erscheinen sie hier unter „Neue Anmeldungen“.</p></div>`)}
   <div class="card stack"><div class="label">Einladungscodes</div><p class="small muted" style="margin:0">Wer bei der Registrierung einen aktiven Code eingibt, ist sofort freigeschaltet.</p>${codes.map(k => `<form class="row" data-form="code" data-id="${k.id}" style="flex-wrap:wrap"><label class="field" style="min-width:120px"><span class="small muted">${esc(k.type_label)}</span><input id="code-${k.id}" value="${esc(k.code)}" required maxlength="30" autocapitalize="characters"></label><button class="btn" style="align-self:flex-end">Speichern</button><button type="button" class="btn ghost" style="align-self:flex-end" data-act="codeactive" data-id="${k.id}">${k.active ? 'Aktiv' : 'Aus'}</button></form>`).join('')}</div>
+  <div class="card stack"><div class="label">Dein eigener 360°-Körper</div>${spinView(me.id, true) || spinInvite(me.id, true)}<p class="small muted" style="margin:0">So sehen es deine Kunden unter „Körper“ – gut zum Vorführen.</p></div>
   <div class="card stack"><div class="label">Link für Kunden</div><div style="word-break:break-all"><b>${esc(location.origin + location.pathname)}</b></div><button class="btn ghost" data-act="copylink">Link kopieren</button></div>
   <button class="btn ghost" data-act="logout">Abmelden</button></div>`;
 }
@@ -644,10 +744,11 @@ function render(){
   tabs.hidden = true;
   if (!session) { app.innerHTML = viewAuth(); return; }
   if (!me) { app.innerHTML = '<div class="loading">Lädt …</div>'; return; }
-  if (me.role === 'coach' && !preview) { app.innerHTML = viewCoach(); return; }
+  if (me.role === 'coach' && !preview) { app.innerHTML = viewCoach(); initSpins(); return; }
   if ((me.role !== 'client' && !preview) || !C) { app.innerHTML = viewPending(); return; }
   app.innerHTML = (preview ? `<div class="reminder row between" style="margin-top:8px"><span><b>Vorschau:</b> So sieht ${esc(C.p.name)} die App.</span><button class="btn ghost" style="min-height:40px;padding:6px 12px" data-act="endpreview">Zurück</button></div>` : '') + ({heute:viewHeute, woche:viewWoche, uebungen:viewUebungen, essen:viewEssen, koerper:viewKoerper, erfolge:viewErfolge})[tab](C);
   tabs.hidden = false;
+  initSpins();
   document.getElementById('tabsIn').innerHTML = Object.entries(TABS).map(([k,[l,ic]]) => `<button class="tab" data-tab="${k}" ${k===tab?'aria-current="page"':''}><svg viewBox="0 0 24 24">${ic}</svg>${l}</button>`).join('');
 }
 async function boot(){
@@ -692,6 +793,7 @@ document.addEventListener('click', async e => {
     if (a === 'feelmood') { const note = (document.getElementById('feelNote') || {}).value; OV.feel.mood = id; renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
     if (a === 'feelsave') { await saveFeel(); return; }
     if (a === 'quickdone') { const k = iso(today()); (C.done[k] ||= []).includes(OV.src.item) || C.done[k].push(OV.src.item); await q(sb.from('checkins').upsert({client_id: me.id, item_id: OV.src.item, day: k}, {onConflict: 'item_id,day'})); closeOverlay(); toast('Abgehakt. Weiter so!'); render(); return; }
+    if (a === 'spinsave') { try { await saveSpin(); } catch (err) { if (OV) { OV.step = 'trim'; renderOverlay(); spinPreview(); } fail(err); } return; }
     // Essen
     if (a === 'eat') { const f = FOODS.find(x => x[0] === id); await addEat({n: f[2], g: f[4]}); return; }
     if (a === 'eatdel') { const d = dayCheck(C), list = [...(d.essen || [])]; list.splice(+id, 1); const nd = {...d, essen: list}; C.checks.tag[iso(today())] = nd; render(); await saveDayCheck(nd); return; }
@@ -712,7 +814,7 @@ document.addEventListener('click', async e => {
     // Anmeldung und Kunde
     if (a === 'mode') { authMode = b.dataset.mode; authMsg = ''; }
     if (a === 'menu') { if (preview) { preview = false; C = null; render(); return; } if (me.role === 'coach') { scrollTo(0, document.body.scrollHeight); return; } tab = 'erfolge'; render(); scrollTo(0, document.body.scrollHeight); toast('Abmelden findest du unten'); return; }
-    if (a === 'logout') { await sb.auth.signOut(); session = null; me = null; C = null; roster = []; coachSel = null; tab = 'heute'; }
+    if (a === 'logout') { for (const k in SPIN) delete SPIN[k]; await sb.auth.signOut(); session = null; me = null; C = null; roster = []; coachSel = null; tab = 'heute'; }
     if (a === 'reload') { await boot(); return; }
     if (a === 'toggle') {
       const k = iso(today()), arr = C.done[k] ||= [], i = arr.indexOf(id);
@@ -739,7 +841,7 @@ document.addEventListener('click', async e => {
   const y = scrollY; render(); if (me && me.role === 'coach') scrollTo(0, y);
 });
 document.addEventListener('keydown', e => { const mu = e.target.closest && e.target.closest('[data-muscle]'); if (mu && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); mu.dispatchEvent(new MouseEvent('click', {bubbles: true})); } });
-document.addEventListener('input', e => { const wk = e.target.dataset && e.target.dataset.wk; if (wk && OV && OV.type === 'week') { OV.data[wk] = e.target.value; return; } const k = e.target.dataset && e.target.dataset.kg; if (k && OV && OV.list) { const [i, s] = k.split('-').map(Number); OV.list[i].kg[s] = e.target.value; } });
+document.addEventListener('input', e => { const sr = e.target.dataset && e.target.dataset.spinrange; if (sr && OV && OV.type === 'spinmake') { const n = +e.target.value; if (sr === 'a') OV.a = Math.min(n, OV.b - 1); else OV.b = Math.max(n, OV.a + 1); const lab = e.target.previousElementSibling; if (lab) lab.textContent = (sr === 'a' ? 'Start der Drehung: ' : 'Wieder vorne: ') + (OV.v.duration * ((sr === 'a' ? OV.a : OV.b) + 0.5) / SPIN_SCAN).toFixed(1).replace('.', ',') + ' s'; return; } const wk = e.target.dataset && e.target.dataset.wk; if (wk && OV && OV.type === 'week') { OV.data[wk] = e.target.value; return; } const k = e.target.dataset && e.target.dataset.kg; if (k && OV && OV.list) { const [i, s] = k.split('-').map(Number); OV.list[i].kg[s] = e.target.value; } });
 
 document.addEventListener('submit', async e => {
   e.preventDefault();
@@ -779,6 +881,8 @@ document.addEventListener('submit', async e => {
   render(); if (me && me.role === 'coach') scrollTo(0, y);
 });
 document.addEventListener('change', async e => {
+  const sf = e.target.dataset && e.target.dataset.spinfile;
+  if (sf) { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; if (preview) { toast('Vorschau: hier wird nichts gespeichert'); return; } if (f.size > 300 * 1024 * 1024) { toast('Das Video ist zu groß. Bitte kürzer aufnehmen (ca. 10 Sekunden).'); return; } startSpinMake(sf, f); return; }
   if (e.target.id === 'dcSteps') { if (preview) { toast('Vorschau: hier wird nichts gespeichert'); return; } const n = Math.max(0, Math.min(100000, parseInt(e.target.value) || 0)); try { await saveDayCheck({...dayCheck(C), schritte: n || null}); toast(n ? n.toLocaleString('de-DE') + ' Schritte gespeichert' : 'Schritte gelöscht'); render(); } catch (err) { fail(err); } return; }
   if (e.target.id !== 'remTime' || !e.target.value) return;
   if (preview) { toast('Vorschau: hier wird nichts gespeichert'); return; }

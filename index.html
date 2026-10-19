@@ -160,6 +160,16 @@ details summary{color:var(--tint);font-weight:500;list-style:none} details summa
 .recipe a,.small a{color:var(--tint)}
 .dotb{flex:0 0 6px;height:6px;border-radius:50%;background:var(--tint);margin-top:2px}
 .stepn{flex:0 0 26px;height:26px;border-radius:50%;background:var(--tint-soft);color:var(--tint);display:grid;place-items:center;font-weight:800;font-size:.8125rem}
+.spinwrap{position:relative;border-radius:18px;overflow:hidden;background:#111}
+.spin{width:100%;max-width:340px;margin:0 auto;aspect-ratio:300/540;background-size:600% 600%;background-repeat:no-repeat;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;display:grid;place-items:center}
+.spin:active{cursor:grabbing}
+.spin.loading{background:var(--fill);border-radius:18px}
+.spinhint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:.75rem;font-weight:600;padding:6px 12px;border-radius:99px;backdrop-filter:blur(8px);pointer-events:none;white-space:nowrap}
+.spinup{align-self:center;cursor:pointer}
+.spinempty{background:var(--fill);border-radius:16px;padding:14px}
+.spintrim{border-radius:18px;overflow:hidden;background:#111;max-width:200px;margin:0 auto;width:100%}
+.spintrim img{width:100%;aspect-ratio:54/96;object-fit:cover;display:block}
+input[type=range]{width:100%;accent-color:var(--tint)}
 .fb{display:flex;flex-direction:column;gap:2px}
 .fbnote{font-size:.875rem;font-style:italic}
 .confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
@@ -363,10 +373,10 @@ details.dp[open] .chev{transform:rotate(225deg) translateY(-2px)}
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=32"></script>
-<script src="anim.js?v=32"></script>
-<script src="exercises.js?v=32"></script>
-<script src="nutrition.js?v=33"></script>
-<script src="app.js?v=32"></script>
+<script src="body.js?v=34"></script>
+<script src="anim.js?v=34"></script>
+<script src="exercises.js?v=34"></script>
+<script src="nutrition.js?v=34"></script>
+<script src="app.js?v=34"></script>
 </body>
 </html>
