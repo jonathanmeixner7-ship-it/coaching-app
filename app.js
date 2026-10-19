@@ -178,18 +178,17 @@ function streakLine(c){
 }
 // ---------- Tages-Check, Wochen-Check-in, Coach-Ampel ----------
 const DC_Q = [['schlaf','Schlaf',['😫','😕','😐','🙂','😴'],'schlecht','super'],['energie','Energie',['🪫','😮‍💨','😐','🙂','⚡'],'leer','voll'],['stress','Stress',['😌','🙂','😐','😟','🤯'],'entspannt','sehr hoch']];
-const DC_WATER = 8; // Gläser à 0,25 l
 let dcOpen = false;
 const monIso = d => iso(addDays(d, -dayIdx(d)));
 function dayCheck(c){ return c.checks.tag[iso(today())] || {}; }
 function dcDone(d){ return DC_Q.every(([k]) => d[k]); }
 function dailyCheck(c){
-  const d = dayCheck(c), w = d.wasser || 0;
+  const d = dayCheck(c), w = d.wasser || 0, wg = waterGoal(c);
   if (dcDone(d) && !dcOpen) return `<button class="card dcsum" data-act="dcopen"><span class="dcok">✓</span><span style="min-width:0;flex:1"><b>Tages-Check erledigt</b><span class="small muted" style="display:block">${DC_Q.map(([k, l, em]) => `${l} ${em[d[k]-1]}`).join(' · ')} · ${w} ${w === 1 ? 'Glas' : 'Gläser'}${d.schritte ? ' · ' + d.schritte.toLocaleString('de-DE') + ' Schritte' : ''}</span></span><span class="small muted">Ändern</span></button>`;
   return `<div class="card stack dc"><div class="row between"><div class="label">Tages-Check</div><span class="small muted">20 Sekunden</span></div>
    ${DC_Q.map(([k, l, em, lo, hi]) => `<div class="dcq"><div class="row between"><b>${l}</b><span class="small muted">${lo} → ${hi}</span></div><div class="dcb">${em.map((e, i) => `<button class="moodb${d[k] === i+1 ? ' on' : ''}" data-act="dc" data-id="${k}-${i+1}" aria-pressed="${d[k] === i+1}" aria-label="${l} ${i+1} von 5"><span>${e}</span></button>`).join('')}</div></div>`).join('')}
-   <div class="row between dcq"><div><b>Wasser</b><div class="small muted">${(w*0.25).toLocaleString('de-DE')} von 2 Litern</div></div><div class="row" style="gap:8px"><button class="stepb" data-act="dcwater" data-id="-1" aria-label="Ein Glas weniger">−</button><span class="tk-num" style="font-size:1.4rem;min-width:28px;text-align:center">${w}</span><button class="stepb" data-act="dcwater" data-id="1" aria-label="Ein Glas mehr">+</button></div></div>
-   <div class="glasses" aria-hidden="true">${Array.from({length: DC_WATER}, (_, i) => `<i class="${i < w ? 'on' : ''}"></i>`).join('')}</div>
+   <div class="row between dcq"><div><b>Wasser</b><div class="small muted">${(w*0.25).toLocaleString('de-DE')} von ${(wg*0.25).toLocaleString('de-DE')} Litern</div></div><div class="row" style="gap:8px"><button class="stepb" data-act="dcwater" data-id="-1" aria-label="Ein Glas weniger">−</button><span class="tk-num" style="font-size:1.4rem;min-width:28px;text-align:center">${w}</span><button class="stepb" data-act="dcwater" data-id="1" aria-label="Ein Glas mehr">+</button></div></div>
+   <div class="glasses" aria-hidden="true">${Array.from({length: wg}, (_, i) => `<i class="${i < w ? 'on' : ''}"></i>`).join('')}</div>
    <label class="field"><span class="small muted">Schritte heute (optional)</span><input id="dcSteps" type="number" inputmode="numeric" min="0" max="100000" value="${d.schritte || ''}" placeholder="z. B. 8000"></label>
    ${dcDone(d) ? '<button class="btn" data-act="dcclose">Fertig</button>' : ''}</div>`;
 }
@@ -263,7 +262,78 @@ function coachChecks(c){
   if (!weeks.length && !lastDays.length) return `<div class="card stack" style="gap:6px"><div class="label">Check-ins</div><span class="small muted">Noch kein Tages-Check und kein Wochen-Check-in.</span></div>`;
   return `<div class="card stack" style="gap:10px"><div class="label">Check-ins</div>
   ${weeks.map(k => { const w = c.checks.woche[k]; return `<div class="fb"><div class="row between"><b>Woche ab ${shortDate(k)}</b><span class="chip ${w.zufrieden <= 4 ? 'ems' : 'kraft'}">${w.zufrieden}/10 zufrieden</span></div><div class="small muted">${w.einheiten ?? '–'} Einheiten · ${w.minuten ?? '–'} Min · ${w.tage ?? '–'} aktive Tage</div>${[['gut','Lief gut'],['schwer','Schwierig'],['vorsatz','Vorsatz'],['wunsch','Frage an dich']].filter(([q]) => w[q]).map(([q, l]) => `<div class="small"><b>${l}:</b> ${esc(w[q])}</div>`).join('')}</div>`; }).join('<hr class="sep">')}
-  ${lastDays.length ? `${weeks.length ? '<hr class="sep">' : ''}<div class="small muted">Tages-Check (letzte ${lastDays.length})</div><div class="dctable"><span></span><span>Schlaf</span><span>Energie</span><span>Stress</span><span>Wasser</span><span>Schritte</span>${lastDays.map(k => { const d = c.checks.tag[k]; return `<span>${shortDate(k)}</span>${DC_Q.map(([q, , em]) => `<span>${d[q] ? em[d[q]-1] : '–'}</span>`).join('')}<span>${d.wasser || 0}</span><span>${d.schritte ? (d.schritte/1000).toLocaleString('de-DE', {maximumFractionDigits: 1}) + 'k' : '–'}</span>`; }).join('')}</div>` : ''}</div>`;
+  ${lastDays.length ? `${weeks.length ? '<hr class="sep">' : ''}<div class="small muted">Tages-Check (letzte ${lastDays.length})</div><div class="dctable"><span></span><span>Schlaf</span><span>Energie</span><span>Stress</span><span>Wasser</span><span>Eiweiß</span><span>Schritte</span>${lastDays.map(k => { const d = c.checks.tag[k]; return `<span>${shortDate(k)}</span>${DC_Q.map(([q, , em]) => `<span>${d[q] ? em[d[q]-1] : '–'}</span>`).join('')}<span>${d.wasser || 0}</span><span>${d.essen && d.essen.length ? eatenOf(d) + ' g' : '–'}</span><span>${d.schritte ? (d.schritte/1000).toLocaleString('de-DE', {maximumFractionDigits: 1}) + 'k' : '–'}</span>`; }).join('')}</div>` : ''}</div>`;
+}
+// ---------- Essen: Eiweiß, Wasser, Rezepte, rund ums Training ----------
+let recipeTag = 'alle';
+// Bezugsgewicht: Zielgewicht, falls niedriger (übliche Praxis bei Übergewicht), sonst aktuelles Gewicht
+function refWeight(c){
+  const w = latestBody(c).v.weight || (c.p.goal_unit === 'kg' && c.p.goal_start != null ? +c.p.goal_start : null);
+  const t = c.p.goal_unit === 'kg' && c.p.goal_target != null ? +c.p.goal_target : null;
+  if (w && t && t < w) return {kg: t, src: 'ziel'};
+  return w ? {kg: w, src: 'gewicht'} : {kg: c.p.gender === 'w' ? 65 : 80, src: 'schaetzung'};
+}
+// 1,6 g/kg (Morton 2018), Spanne 1,2–2,0 g/kg (Jäger 2017, PROT-AGE), pro Mahlzeit 0,4 g/kg (Schoenfeld & Aragon 2018)
+function proteinGoal(c){ const {kg, src} = refWeight(c), r5 = x => Math.round(x / 5) * 5; return {g: r5(kg * 1.6), lo: r5(kg * 1.2), hi: r5(kg * 2.0), meal: r5(kg * 0.4), kg, src}; }
+// Trinken: EFSA (Männer 2,5 l / Frauen 2,0 l Gesamtwasser, ~80 % aus Getränken) + 0,5 l an Trainingstagen
+function waterGoal(c, d = today()){ return (c.p.gender === 'w' ? 7 : 8) + ((c.plan[dayKey(d)] || []).length ? 2 : 0); }
+function eatenOf(d){ return (d.essen || []).reduce((a, x) => a + (+x.g || 0), 0); }
+const liters = n => (n * 0.25).toLocaleString('de-DE');
+function refLinks(keys){ return keys.map(k => `<a class="reflink" href="${REFS[k].url}" target="_blank" rel="noopener">${esc(REFS[k].t)}</a>`).join(''); }
+function recipeCard(r){ return `<button class="rcard" data-act="openrecipe" data-id="${r.id}"><img src="${UNSPLASH(r.img, 600, 380)}" alt="${esc(r.name)}" decoding="async"><span class="rtxt"><b>${esc(r.name)}</b><span class="small muted">${r.p} g Eiweiß · ${r.kcal} kcal · ${r.min} Min</span></span></button>`; }
+function viewEssen(c){
+  const T = today(), d = dayCheck(c), list = d.essen || [], eaten = eatenOf(d), pg = proteinGoal(c), wg = waterGoal(c), w = d.wasser || 0;
+  const train = c.plan[dayKey(T)] || [], rest = Math.max(0, pg.g - eaten);
+  const sugg = rest > 0 ? [...RECIPES].filter(r => r.p >= 15).sort((a, b) => Math.abs(a.p - rest) - Math.abs(b.p - rest))[0] : null;
+  const bar = (l, v, unit, frac, cls) => `<div class="tk-bar"><div class="lbl"><span>${l}</span><span><b class="tk-num">${v}</b> ${unit}</span></div><div class="tk-track"><div class="tk-fill${cls ? ' ' + cls : ''}" style="width:${Math.max(3, Math.min(100, frac * 100))}%"></div></div></div>`;
+  const recs = RECIPES.filter(r => recipeTag === 'alle' || r.tags.includes(recipeTag));
+  return `${head(c, 'Essen', 'Eiweiß · Wasser · Rezepte')}<div class="stack">
+  <div class="card stack" style="gap:14px">
+   ${bar('Eiweiß heute', eaten, `/ ${pg.g} g`, eaten / pg.g)}
+   ${bar('Wasser heute', liters(w), `/ ${liters(wg)} l`, w / wg, 'water')}
+   <div class="row between"><span class="small muted">${w} von ${wg} Gläsern (0,25 l)${train.length ? ' · Trainingstag +0,5 l' : ''}</span><span class="row" style="gap:8px"><button class="stepb" data-act="dcwater" data-id="-1" aria-label="Ein Glas weniger">−</button><button class="stepb water" data-act="dcwater" data-id="1" aria-label="Ein Glas mehr">+ 💧</button></span></div>
+   <div class="small">${eaten >= pg.g ? '<b>Eiweißziel geschafft.</b> Stark!' : `Noch <b>${rest} g</b> Eiweiß.${sugg ? ` Idee: <button class="btn link inline" data-act="openrecipe" data-id="${sugg.id}">${esc(sugg.name)} (${sugg.p} g)</button>` : ''}`}</div></div>
+
+  <details class="card"><summary class="row between" style="cursor:pointer;min-height:28px"><b>Dein Ziel: ${pg.g} g Eiweiß am Tag</b><span class="small muted">Warum?</span></summary>
+   <div class="stack" style="gap:8px;margin-top:10px"><div class="small">1,6 g pro kg ${pg.src === 'ziel' ? 'Zielgewicht' : 'Körpergewicht'} (${fmt(pg.kg)} kg). Sinnvolle Spanne: ${pg.lo}–${pg.hi} g. Am besten auf 3–4 Mahlzeiten mit je ca. <b>${pg.meal} g</b> verteilen.</div>
+   ${pg.src === 'schaetzung' ? '<div class="small" style="color:var(--warm)">Noch geschätzt – trag unter „Körper“ dein Gewicht ein, dann wird dein Ziel genau.</div>' : ''}
+   <div class="small muted">Ab 40 baut der Körper leichter Muskeln ab – genug Eiweiß und Krafttraining sind die beste Gegenstrategie.</div>
+   <div class="refs">${refLinks(['morton', 'jaeger', 'aragon', 'protage'])}</div></div></details>
+
+  ${train.length ? `<div class="card hi stack" style="gap:8px"><div class="label" style="color:var(--tint)">Heute ist Training</div><div><b>${esc(train.map(t => t.title).join(', '))}</b></div><div class="small muted">Vorher: Kohlenhydrate, z. B. Banane. Danach: 20–40 g Eiweiß. Unten bei „Rund ums Training“ steht, wie.</div><div class="row" style="gap:8px"><button class="btn ghost" style="flex:1;min-width:0" data-act="openrecipe" data-id="vorher_snack">🍌 Vorher</button><button class="btn ghost" style="flex:1;min-width:0" data-act="openrecipe" data-id="quark_banane">💪 Nachher</button></div></div>` : ''}
+
+  <div class="section"><h2>Eiweiß eintragen</h2><span class="small muted">antippen = dazu</span></div>
+  <div class="foodgrid">${FOODS.map(f => `<button class="food" data-act="eat" data-id="${f[0]}"><span class="fe" aria-hidden="true">${f[1]}</span><span class="fn"><b>${esc(f[2])}</b><span class="small muted">${esc(f[3])}</span></span><span class="fp">+${f[4]} g</span></button>`).join('')}</div>
+  <form class="row" data-form="eatcustom" style="gap:8px"><input id="eatN" maxlength="40" placeholder="Eigenes, z. B. Joghurt" style="flex:1;min-width:0"><input id="eatG" type="number" inputmode="numeric" min="1" max="150" placeholder="g" required style="width:72px"><button class="btn">+</button></form>
+  ${list.length ? `<div class="card stack" style="gap:6px"><div class="label">Heute gegessen</div>${list.map((x, i) => `<div class="row between"><span>${esc(x.n)}</span><span class="row" style="gap:10px"><b class="tk-num">${x.g} g</b><button class="btn link" style="color:var(--danger)" data-act="eatdel" data-id="${i}" aria-label="${esc(x.n)} entfernen">✕</button></span></div>`).join('')}</div>` : ''}
+
+  <div class="section"><h2>Rezepte</h2><span class="small muted">${recs.length} Ideen</span></div>
+  <div class="chips">${RTAGS.map(([k, l]) => `<button class="fchip${recipeTag === k ? ' on' : ''}" data-act="rtag" data-id="${k}" aria-pressed="${recipeTag === k}">${l}</button>`).join('')}</div>
+  <div class="rgrid">${recs.map(recipeCard).join('')}</div>
+
+  <div class="section"><h2>Rund ums Training</h2></div>
+  <div class="card stack boost">${BOOST.map(b => `<div class="bt"><span class="bi" aria-hidden="true">${b.icon}</span><div style="min-width:0"><div class="label">${b.when}</div><b>${b.t}</b><div class="small">${b.s}</div>${b.r ? `<button class="btn link inline" data-act="openrecipe" data-id="${b.r}">Rezept: ${esc(RECIPES.find(r => r.id === b.r).name)}</button>` : ''}<div class="refs">${refLinks(b.refs)}</div></div></div>`).join('')}</div>
+
+  <details class="card"><summary style="cursor:pointer;min-height:28px;font-weight:600">Worauf das beruht (Studien)</summary><div class="stack" style="gap:10px;margin-top:10px">${Object.values(REFS).map(r => `<div><a class="reflink" href="${r.url}" target="_blank" rel="noopener">${esc(r.t)}</a><div class="small muted">${esc(r.s)}</div></div>`).join('')}</div></details>
+  <p class="small muted" style="margin:0 4px">Allgemeine Infos für gesunde Erwachsene, keine medizinische Beratung. Bei Nierenerkrankungen, Schwangerschaft, Diabetes oder Medikamenten bitte vorher mit dem Arzt sprechen. Nährwerte sind Richtwerte. Fotos: <a href="https://unsplash.com/${UTM}" target="_blank" rel="noopener">Unsplash</a>.</p>
+  </div>`;
+}
+function viewRecipe(r){
+  return `<div class="recipe"><div class="rhero"><img src="${UNSPLASH(r.img, 1000, 650)}" alt="${esc(r.name)}"><button class="btn ghost rclose" data-act="closeov" aria-label="Schließen">✕</button></div>
+  <div class="wrap stack" style="padding-top:16px"><div class="small muted">Foto: <a href="https://unsplash.com/@${r.by[1]}${UTM}" target="_blank" rel="noopener">${esc(r.by[0])}</a> auf <a href="https://unsplash.com/${UTM}" target="_blank" rel="noopener">Unsplash</a></div>
+  <h1>${esc(r.name)}</h1>
+  <div class="stats"><div class="stat"><b>${r.p} g</b><span class="small muted">Eiweiß</span></div><div class="stat"><b>${r.kcal}</b><span class="small muted">kcal</span></div><div class="stat"><b>${r.min}</b><span class="small muted">Minuten</span></div></div>
+  <div class="small">${esc(r.why)}</div>
+  <div class="card stack" style="gap:6px"><div class="label">Zutaten · 1 Portion</div>${r.zut.map(z => `<div class="row" style="gap:10px"><span class="dotb"></span><span>${esc(z)}</span></div>`).join('')}</div>
+  <div class="card stack" style="gap:10px"><div class="label">So geht's</div>${r.steps.map((st, i) => `<div class="row" style="gap:12px;align-items:flex-start"><span class="stepn">${i + 1}</span><span>${esc(st)}</span></div>`).join('')}</div>
+  <button class="btn" data-act="eatrecipe" data-id="${r.id}">Gegessen – ${r.p} g Eiweiß eintragen</button>
+  <button class="btn link" data-act="closeov">Schließen</button></div></div>`;
+}
+async function addEat(entry){
+  const d = dayCheck(C), before = eatenOf(d), list = [...(d.essen || []), entry], nd = {...d, essen: list}, goal = proteinGoal(C).g;
+  C.checks.tag[iso(today())] = nd; render();
+  if (before < goal && eatenOf(nd) >= goal) { celebrate(); toast('Eiweißziel geschafft!'); } else toast(`+${entry.g} g Eiweiß`);
+  await saveDayCheck(nd);
 }
 function viewHeute(c){
   const T = today(), items = c.plan[dayKey(T)] || [], done = c.done[iso(T)] || [];
@@ -448,7 +518,7 @@ function openOverlay(){ document.body.style.overflow = 'hidden'; document.getEle
 function closeOverlay(){ OV = null; stopTimer(); document.body.style.overflow = ''; document.getElementById('layer').innerHTML = ''; }
 function renderOverlay(){
   const ov = document.getElementById('ov'); if (!ov || !OV) return;
-  ov.innerHTML = OV.type === 'ex' ? exDetail(EXMAP[OV.id]) : OV.type === 'workout' ? viewWorkout() : OV.type === 'week' ? viewWeekCheck() : viewSummary();
+  ov.innerHTML = OV.type === 'ex' ? exDetail(EXMAP[OV.id]) : OV.type === 'workout' ? viewWorkout() : OV.type === 'week' ? viewWeekCheck() : OV.type === 'recipe' ? viewRecipe(RECIPES.find(r => r.id === OV.id)) : viewSummary();
 }
 // Pausen- und Satz-Timer
 function startTimer(mode, secs, onDone){
@@ -571,7 +641,7 @@ const AUTH_ERRORS = {'Invalid login credentials':'E-Mail oder Passwort stimmt ni
 const authErr = m => `<p class="err">${esc(AUTH_ERRORS[m] || (m.includes('Password') ? 'Das Passwort ist zu kurz oder zu einfach.' : m.includes('rate') ? 'Zu viele Versuche. Bitte warte kurz.' : 'Das hat nicht geklappt: ' + m))}</p>`;
 
 // ---------- Ablauf ----------
-const TABS = {heute:['Heute','<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>'], woche:['Woche','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'], uebungen:['Übungen','<path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/>'], koerper:['Körper','<circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M8 10l4 1 4-1M10 21l2-6 2 6"/>'], erfolge:['Erfolge','<circle cx="12" cy="9" r="6"/><path d="M8.5 14l-1.5 7 5-3 5 3-1.5-7"/>']};
+const TABS = {heute:['Heute','<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>'], woche:['Woche','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'], uebungen:['Übungen','<path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/>'], essen:['Essen','<path d="M7 3v18M4 3v5a3 3 0 0 0 6 0V3M17 21V3c-2.5 1.5-3.5 4-3.5 8h3.5"/>'], koerper:['Körper','<circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M8 10l4 1 4-1M10 21l2-6 2 6"/>'], erfolge:['Erfolge','<circle cx="12" cy="9" r="6"/><path d="M8.5 14l-1.5 7 5-3 5 3-1.5-7"/>']};
 function render(){
   const app = document.getElementById('app'), tabs = document.getElementById('tabs');
   tabs.hidden = true;
@@ -579,7 +649,7 @@ function render(){
   if (!me) { app.innerHTML = '<div class="loading">Lädt …</div>'; return; }
   if (me.role === 'coach' && !preview) { app.innerHTML = viewCoach(); return; }
   if ((me.role !== 'client' && !preview) || !C) { app.innerHTML = viewPending(); return; }
-  app.innerHTML = (preview ? `<div class="reminder row between" style="margin-top:8px"><span><b>Vorschau:</b> So sieht ${esc(C.p.name)} die App.</span><button class="btn ghost" style="min-height:40px;padding:6px 12px" data-act="endpreview">Zurück</button></div>` : '') + ({heute:viewHeute, woche:viewWoche, uebungen:viewUebungen, koerper:viewKoerper, erfolge:viewErfolge})[tab](C);
+  app.innerHTML = (preview ? `<div class="reminder row between" style="margin-top:8px"><span><b>Vorschau:</b> So sieht ${esc(C.p.name)} die App.</span><button class="btn ghost" style="min-height:40px;padding:6px 12px" data-act="endpreview">Zurück</button></div>` : '') + ({heute:viewHeute, woche:viewWoche, uebungen:viewUebungen, essen:viewEssen, koerper:viewKoerper, erfolge:viewErfolge})[tab](C);
   tabs.hidden = false;
   document.getElementById('tabsIn').innerHTML = Object.entries(TABS).map(([k,[l,ic]]) => `<button class="tab" data-tab="${k}" ${k===tab?'aria-current="page"':''}><svg viewBox="0 0 24 24">${ic}</svg>${l}</button>`).join('');
 }
@@ -605,7 +675,7 @@ document.addEventListener('click', async e => {
   try {
     if (a === 'startpreview') { C = roster.find(x => x.p.id === id); preview = true; tab = 'heute'; render(); scrollTo(0,0); return; }
     if (a === 'endpreview') { preview = false; C = null; closeOverlay(); render(); scrollTo(0,0); return; }
-    if (preview && ['toggle','finish','quickdone','delextra','feelsave','dc','dcwater','wksave'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
+    if (preview && ['toggle','finish','quickdone','delextra','feelsave','dc','dcwater','wksave','eat','eatdel','eatrecipe'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
     // Vollbild
     if (a === 'openex') { OV = {type:'ex', id}; openOverlay(); return; }
     if (a === 'exinfo') { OV.back = {...OV}; const back = OV.back; OV = {type:'ex', id, back}; renderOverlay(); document.getElementById('ov').scrollTop = 0; return; }
@@ -625,9 +695,15 @@ document.addEventListener('click', async e => {
     if (a === 'feelmood') { const note = (document.getElementById('feelNote') || {}).value; OV.feel.mood = id; renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
     if (a === 'feelsave') { await saveFeel(); return; }
     if (a === 'quickdone') { const k = iso(today()); (C.done[k] ||= []).includes(OV.src.item) || C.done[k].push(OV.src.item); await q(sb.from('checkins').upsert({client_id: me.id, item_id: OV.src.item, day: k}, {onConflict: 'item_id,day'})); closeOverlay(); toast('Abgehakt. Weiter so!'); render(); return; }
+    // Essen
+    if (a === 'eat') { const f = FOODS.find(x => x[0] === id); await addEat({n: f[2], g: f[4]}); return; }
+    if (a === 'eatdel') { const d = dayCheck(C), list = [...(d.essen || [])]; list.splice(+id, 1); const nd = {...d, essen: list}; C.checks.tag[iso(today())] = nd; render(); await saveDayCheck(nd); return; }
+    if (a === 'rtag') { recipeTag = id; render(); return; }
+    if (a === 'openrecipe') { OV = {type: 'recipe', id}; openOverlay(); document.getElementById('ov').scrollTop = 0; return; }
+    if (a === 'eatrecipe') { const r = RECIPES.find(x => x.id === id); closeOverlay(); await addEat({n: r.name, g: r.p}); return; }
     // Tages-Check und Wochen-Check-in
     if (a === 'dc') { const [k, v] = id.split('-'), d = {...dayCheck(C), [k]: +v}; const wasDone = dcDone(dayCheck(C)); render(); await saveDayCheck(d); if (!wasDone && dcDone(d)) { dcOpen = false; toast('Tages-Check gespeichert. Danke!'); } render(); return; }
-    if (a === 'dcwater') { const d = dayCheck(C), w = Math.max(0, Math.min(16, (d.wasser || 0) + +id)); const nd = {...d, wasser: w}; C.checks.tag[iso(today())] = nd; render(); if (w === DC_WATER && +id > 0) toast('2 Liter geschafft!'); await saveDayCheck(nd); return; }
+    if (a === 'dcwater') { const d = dayCheck(C), w = Math.max(0, Math.min(16, (d.wasser || 0) + +id)); const nd = {...d, wasser: w}; C.checks.tag[iso(today())] = nd; render(); if (w === waterGoal(C) && +id > 0) { toast('Wasserziel geschafft!'); celebrate(); } await saveDayCheck(nd); return; }
     if (a === 'dcopen') { dcOpen = true; render(); return; }
     if (a === 'dcclose') { dcOpen = false; render(); return; }
     if (a === 'wkopen') { OV = {type: 'week', data: {}}; openOverlay(); return; }
@@ -672,7 +748,7 @@ document.addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target.dataset.form, v = id => document.getElementById(id).value.trim();
   const y = scrollY;
-  if (preview && ['extra','measure','body'].includes(f)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
+  if (preview && ['extra','measure','body','eatcustom'].includes(f)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
   try {
     if (f === 'auth') {
       busy = true; authMsg = ''; const mail = v('uMail'), pass = document.getElementById('uPass').value;
@@ -686,6 +762,7 @@ document.addEventListener('submit', async e => {
       if (!res.data.session) { authMsg = '<p class="ok">Konto angelegt. Bitte melde dich jetzt an.</p>'; authMode = 'login'; render(); return; }
       return; // onAuthStateChange übernimmt
     }
+    if (f === 'eatcustom') { const g = Math.max(1, Math.min(150, parseInt(v('eatG')) || 0)); await addEat({n: v('eatN') || 'Eigenes', g}); return; }
     if (f === 'extra') { await q(sb.from('extras').insert({client_id: me.id, day: iso(today()), title: v('exTitle'), minutes: +v('exMin') || 0})); C = await loadClient(me.id); toast('Extra-Einheit gespeichert'); }
     if (f === 'measure') { const val = parseNum(v('mVal')); if (val == null) { toast('Bitte eine Zahl eintragen, z. B. 79,5'); return; } await q(sb.from('measurements').upsert({client_id: me.id, day: iso(today()), value: val}, {onConflict: 'client_id,day'})); C = await loadClient(me.id); toast('Wert eingetragen'); }
     if (f === 'body') {

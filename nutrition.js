@@ -1,0 +1,117 @@
+// Essen: Eiweiß- und Wasserziel, Rezepte, Tipps rund ums Training – mit Studienquellen
+// Fotos von Unsplash (kostenlose Lizenz, Einbindung direkt von images.unsplash.com mit Namensnennung)
+const UNSPLASH = (id, w = 800, h = 500) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=70`;
+const UTM = '?utm_source=jonathan_coaching&utm_medium=referral';
+
+// Studien und offizielle Empfehlungen (alle geprüft, PubMed-ID bzw. DOI)
+const REFS = {
+  morton:   {t: 'Morton u. a. 2018, Br J Sports Med', s: 'Metaanalyse aus 49 Studien: Eiweiß verstärkt den Muskelzuwachs durch Krafttraining; ab ca. 1,6 g pro kg Körpergewicht kommt im Schnitt kaum noch Zusatznutzen.', url: 'https://pubmed.ncbi.nlm.nih.gov/28698222/'},
+  jaeger:   {t: 'Jäger u. a. 2017, ISSN-Stellungnahme Eiweiß', s: 'Für Trainierende 1,4–2,0 g Eiweiß pro kg am Tag, verteilt auf Mahlzeiten mit je 20–40 g alle 3–4 Stunden.', url: 'https://pubmed.ncbi.nlm.nih.gov/28642676/'},
+  aragon:   {t: 'Schoenfeld & Aragon 2018, J Int Soc Sports Nutr', s: 'Für maximalen Muskelaufbau ca. 0,4 g Eiweiß pro kg pro Mahlzeit, über mindestens 4 Mahlzeiten verteilt.', url: 'https://pubmed.ncbi.nlm.nih.gov/29497353/'},
+  protage:  {t: 'Bauer u. a. 2013, PROT-AGE-Studiengruppe', s: 'Ab 65 Jahren mindestens 1,0–1,2 g pro kg, bei Training mehr; pro Mahlzeit 25–30 g, um Muskelabbau im Alter zu bremsen.', url: 'https://pubmed.ncbi.nlm.nih.gov/23867520/'},
+  timing:   {t: 'Kerksick u. a. 2017, ISSN-Stellungnahme Nährstoff-Timing', s: 'Kohlenhydrate und Eiweiß vor und nach dem Training helfen Leistung und Erholung – entscheidend bleibt aber die Gesamtmenge über den Tag.', url: 'https://pubmed.ncbi.nlm.nih.gov/28919842/'},
+  fenster:  {t: 'Schoenfeld u. a. 2013, Metaanalyse Eiweiß-Timing', s: 'Kein enges „anaboles Fenster“: Wer über den Tag genug Eiweiß isst, muss nicht direkt nach dem Training zum Shake greifen.', url: 'https://pubmed.ncbi.nlm.nih.gov/24299050/'},
+  koffein:  {t: 'Guest u. a. 2021, ISSN-Stellungnahme Koffein', s: '3–6 mg Koffein pro kg ca. 60 Minuten vorher steigern Kraft und Ausdauer; schon geringere Mengen wirken.', url: 'https://pubmed.ncbi.nlm.nih.gov/33388079/'},
+  efsakoff: {t: 'EFSA 2015, Sicherheit von Koffein', s: 'Für gesunde Erwachsene unbedenklich: bis 200 mg auf einmal und bis 400 mg über den Tag.', url: 'https://doi.org/10.2903/j.efsa.2015.4102'},
+  kreatin:  {t: 'Kreider u. a. 2017, ISSN-Stellungnahme Kreatin', s: 'Das am besten untersuchte Sport-Supplement: 3–5 g täglich sind sicher und unterstützen Kraft und Muskelmasse, auch bei Älteren.', url: 'https://pubmed.ncbi.nlm.nih.gov/28615996/'},
+  trinken:  {t: 'Sawka u. a. 2007, ACSM-Stellungnahme Flüssigkeit', s: 'Ca. 4 Stunden vorher 5–7 ml pro kg trinken; mehr als 2 % Gewichtsverlust durch Schweiß vermeiden.', url: 'https://pubmed.ncbi.nlm.nih.gov/17277604/'},
+  efsawas:  {t: 'EFSA 2010, Referenzwerte Wasser', s: 'Gesamtwasser pro Tag: Frauen 2,0 l, Männer 2,5 l – davon kommen ca. 20 % aus dem Essen, der Rest aus Getränken.', url: 'https://doi.org/10.2903/j.efsa.2010.1459'},
+  acsm:     {t: 'Thomas u. a. 2016, ACSM / Academy of Nutrition and Dietetics', s: 'Gemeinsame Empfehlung: Kohlenhydrate liefern die Energie fürs Training, Eiweiß danach fördert die Erholung.', url: 'https://pubmed.ncbi.nlm.nih.gov/26891166/'}
+};
+
+// Schnell eintragen: typische Portionen mit Eiweiß in Gramm (Richtwerte nach Nährwerttabellen)
+const FOODS = [
+  ['skyr', '🥣', 'Skyr / Magerquark', '250 g', 28],
+  ['eier', '🥚', '2 Eier', 'Größe M', 13],
+  ['huhn', '🍗', 'Hähnchen / Pute', '150 g', 35],
+  ['fisch', '🐟', 'Lachs / Fisch', '125 g', 25],
+  ['thun', '🥫', 'Thunfisch', '1 Dose', 30],
+  ['rind', '🥩', 'Rind / Hack mager', '125 g', 26],
+  ['huette', '🧀', 'Hüttenkäse', '200 g', 24],
+  ['kaese', '🧀', 'Käse', '2 Scheiben', 13],
+  ['linsen', '🫘', 'Linsen / Bohnen', '200 g gekocht', 18],
+  ['tofu', '🌱', 'Tofu', '150 g', 22],
+  ['milch', '🥛', 'Milch', '300 ml', 10],
+  ['shake', '🥤', 'Proteinshake', '30 g Pulver', 24]
+];
+
+const RTAGS = [['alle', 'Alle'], ['fruehstueck', 'Frühstück'], ['haupt', 'Hauptgericht'], ['snack', 'Snack'], ['vor', 'Vor dem Training'], ['nach', 'Nach dem Training'], ['veg', 'Vegetarisch']];
+
+// Rezepte: Werte pro Portion (ca.), Foto-ID + Fotograf (Unsplash)
+const RECIPES = [
+  {id: 'skyr_bowl', name: 'Skyr-Bowl mit Beeren', tags: ['fruehstueck', 'snack', 'nach', 'veg'], p: 34, kcal: 410, min: 5,
+   img: '1654923064926-be7e64267a31', by: ['Eiliv Aceron', 'shootdelicious'],
+   zut: ['250 g Skyr natur', '40 g Haferflocken', '100 g Beeren (auch TK)', '10 g Walnüsse', '1 TL Honig'],
+   steps: ['Skyr in eine Schüssel geben und glatt rühren.', 'Haferflocken, Beeren und gehackte Walnüsse darauf verteilen.', 'Mit Honig beträufeln – fertig.'],
+   why: 'Ein Drittel deines Eiweißziels schon zum Frühstück, dazu Ballaststoffe aus dem Hafer.'},
+  {id: 'ruehrei', name: 'Rührei mit Spinat & Avocado', tags: ['fruehstueck', 'veg'], p: 25, kcal: 450, min: 10,
+   img: '1544378828-5a7e2e02c2fd', by: ['Louis Hansel', 'louishansel'],
+   zut: ['3 Eier', '1 Handvoll Babyspinat', '½ Avocado', '1 Scheibe Vollkornbrot', 'Salz, Pfeffer, Chiliflocken'],
+   steps: ['Eier verquirlen, salzen und pfeffern.', 'Spinat in einer beschichteten Pfanne kurz zusammenfallen lassen.', 'Eier dazugeben und bei mittlerer Hitze langsam stocken lassen.', 'Mit Avocadoscheiben und Brot servieren.'],
+   why: 'Eier liefern hochwertiges Eiweiß, Avocado gesunde Fette – macht lange satt.'},
+  {id: 'overnight_oats', name: 'Protein Overnight Oats', tags: ['fruehstueck', 'vor', 'veg'], p: 30, kcal: 420, min: 5,
+   img: '1541809570-cce873416d94', by: ['Ella Olsson', 'ellaolsson'],
+   zut: ['50 g Haferflocken', '150 g Magerquark', '150 ml Milch (1,5 %)', '1 TL Kakao', '½ Banane'],
+   steps: ['Haferflocken, Quark, Milch und Kakao im Glas verrühren.', 'Über Nacht in den Kühlschrank stellen.', 'Morgens Bananenscheiben darauf – zum Mitnehmen ideal.'],
+   why: 'Abends in 5 Minuten vorbereitet. 2–3 Stunden vor dem Training perfekte Energie.'},
+  {id: 'quark_banane', name: 'Quark mit Banane & Zimt', tags: ['snack', 'nach', 'veg'], p: 33, kcal: 340, min: 3,
+   img: '1498507297833-5373e346b4e0', by: ['Dane Deaner', 'danedeaner'],
+   zut: ['250 g Magerquark', '1 Banane', '15 g Haferflocken', '1 TL Honig', 'Zimt'],
+   steps: ['Quark mit einem Schluck Wasser oder Milch cremig rühren.', 'Banane in Scheiben schneiden, mit Haferflocken darauf geben.', 'Mit Honig und Zimt verfeinern.'],
+   why: 'Der Klassiker nach dem Training: Eiweiß für die Muskeln, Kohlenhydrate zum Auffüllen.'},
+  {id: 'beeren_shake', name: 'Beeren-Protein-Shake', tags: ['snack', 'nach', 'veg'], p: 34, kcal: 360, min: 3,
+   img: '1570696516188-ade861b84a49', by: ['Denis', 'denis96'],
+   zut: ['300 ml Milch (1,5 %)', '30 g Proteinpulver oder 200 g Skyr', '100 g TK-Beeren', '½ Banane'],
+   steps: ['Alles in den Mixer geben.', '30 Sekunden mixen, bis es cremig ist.', 'Sofort trinken.'],
+   why: 'Praktisch, wenn es schnell gehen muss – z. B. direkt nach dem Studio.'},
+  {id: 'vorher_snack', name: 'Banane & Reiswaffeln', tags: ['snack', 'vor', 'veg'], p: 4, kcal: 230, min: 2,
+   img: '1640958900081-7b069dd23e9c', by: ['Gabriel Mihalcea', 'lovelyscape'],
+   zut: ['1 Banane', '2 Reiswaffeln', '1 TL Honig oder Marmelade'],
+   steps: ['Reiswaffeln mit Honig bestreichen.', 'Mit der Banane 30–60 Minuten vor dem Training essen.'],
+   why: 'Schnelle Kohlenhydrate, wenig Fett und Ballaststoffe – liegt nicht schwer im Magen.'},
+  {id: 'haehnchen_bowl', name: 'Hähnchen-Reis-Bowl', tags: ['haupt', 'nach'], p: 46, kcal: 590, min: 25,
+   img: '1579619002916-88cd4c81a70c', by: ['James Frewin', 'jamesfrewin'],
+   zut: ['150 g Hähnchenbrust', '70 g Reis (roh)', '200 g Brokkoli oder Grünkohl', '1 EL Olivenöl', '1 EL Sojasauce, Zitrone'],
+   steps: ['Reis nach Packung kochen.', 'Hähnchen in Streifen schneiden und in Olivenöl 6–8 Minuten braten.', 'Brokkoli 4 Minuten dämpfen oder mitbraten.', 'Alles in eine Schüssel, mit Sojasauce und Zitrone abschmecken.'],
+   why: 'Ideal nach dem Training: viel Eiweiß plus Kohlenhydrate zum Auffüllen der Speicher.'},
+  {id: 'lachs', name: 'Lachs mit Quinoa & Brokkoli', tags: ['haupt', 'nach'], p: 39, kcal: 560, min: 25,
+   img: '1539136788836-5699e78bfc75', by: ['Ella Olsson', 'ellaolsson'],
+   zut: ['125 g Lachsfilet', '60 g Quinoa (roh)', '200 g Brokkoli', '1 TL Olivenöl', 'Zitrone, Kräuter, Salz'],
+   steps: ['Quinoa in doppelter Menge Wasser 15 Minuten köcheln.', 'Lachs mit Öl, Salz und Kräutern bei 200 °C ca. 12 Minuten backen.', 'Brokkoli mit aufs Blech legen.', 'Mit Zitrone servieren.'],
+   why: 'Omega-3-Fettsäuren aus dem Lachs plus Eiweiß – ein Top-Abendessen.'},
+  {id: 'thunfisch_salat', name: 'Thunfisch-Bohnen-Salat', tags: ['haupt'], p: 38, kcal: 420, min: 10,
+   img: '1578687388049-079580e6eb2d', by: ['Fallon Michael', 'fallonmichaeltx'],
+   zut: ['1 Dose Thunfisch naturell', '100 g Kidneybohnen (abgetropft)', 'Salat, Tomate, Gurke', '½ rote Zwiebel', '1 EL Olivenöl, Essig, Senf'],
+   steps: ['Salat und Gemüse klein schneiden.', 'Bohnen abspülen, Thunfisch abtropfen lassen.', 'Aus Öl, Essig und Senf ein Dressing rühren und alles mischen.'],
+   why: 'Ohne Kochen in 10 Minuten – perfekt fürs Büro.'},
+  {id: 'wrap', name: 'Hähnchen-Wrap', tags: ['haupt'], p: 38, kcal: 450, min: 15,
+   img: '1529006557810-274b9b2fc783', by: ['Alexander Mils', 'alexandermils'],
+   zut: ['1 Vollkorn-Wrap', '120 g Hähnchenbrust', '50 g griechischer Joghurt (0,2 %)', 'Salat, Tomate, Gurke', 'Knoblauch, Paprikapulver'],
+   steps: ['Hähnchen würzen und in Streifen braten.', 'Joghurt mit Knoblauch und Salz verrühren.', 'Wrap kurz erwärmen, mit Sauce, Gemüse und Hähnchen füllen und rollen.'],
+   why: 'Schmeckt wie Gyros, hat aber fast doppelt so viel Eiweiß und weniger Fett.'},
+  {id: 'linsen_curry', name: 'Rotes Linsen-Curry', tags: ['haupt', 'veg'], p: 28, kcal: 560, min: 25,
+   img: '1627366422957-3efa9c6df0fc', by: ['Yubraj Timsina', 'yubraj2055'],
+   zut: ['80 g rote Linsen (roh)', '200 g passierte Tomaten', '100 ml Kokosmilch light', '1 Handvoll Spinat', '50 g Reis (roh), Currypulver, Ingwer'],
+   steps: ['Zwiebel und Ingwer anschwitzen, Currypulver kurz mitrösten.', 'Linsen, Tomaten, Kokosmilch und 200 ml Wasser dazu, 15 Minuten köcheln.', 'Spinat unterrühren, mit Reis servieren.'],
+   why: 'Pflanzliches Eiweiß und viele Ballaststoffe – gut vorzukochen.'},
+  {id: 'tofu_pfanne', name: 'Knusper-Tofu-Pfanne', tags: ['haupt', 'veg'], p: 36, kcal: 540, min: 20,
+   img: '1680173073730-852e0ec93bec', by: ['Aldino Hartan Putra', 'dinoseus'],
+   zut: ['200 g Tofu natur', '250 g Pfannengemüse', '60 g Reis (roh)', '1 EL Sojasauce', '1 TL Sesamöl, Chili'],
+   steps: ['Tofu gut ausdrücken, würfeln und in wenig Öl rundum knusprig braten.', 'Gemüse dazugeben und 5 Minuten mitbraten.', 'Mit Sojasauce, Sesamöl und Chili abschmecken, zum Reis servieren.'],
+   why: 'Tofu ist eine der besten pflanzlichen Eiweißquellen.'},
+  {id: 'chili', name: 'Chili con Carne (Meal Prep)', tags: ['haupt', 'nach'], p: 33, kcal: 480, min: 35,
+   img: '1658308766948-01c85ade2737', by: ['Svitlana', 'kekse_und_ich'],
+   zut: ['Pro Portion: 125 g Rinderhack (5 % Fett)', '60 g Kidneybohnen', '½ Süßkartoffel', '150 g stückige Tomaten', 'Zwiebel, Paprika, Chili, Kreuzkümmel'],
+   steps: ['Zwiebel und Hack krümelig anbraten.', 'Paprika, Süßkartoffelwürfel, Tomaten und Gewürze dazu.', '25 Minuten köcheln, Bohnen am Ende unterrühren.', 'Gleich 4 Portionen kochen – hält 3 Tage im Kühlschrank.'],
+   why: 'Einmal kochen, mehrmals essen. Gefriert auch gut.'}
+];
+
+// Rund ums Training (mit Quellen)
+const BOOST = [
+  {when: '2–3 Std. vorher', icon: '🍽️', t: 'Normale Mahlzeit', s: 'Kohlenhydrate plus etwas Eiweiß, z. B. Overnight Oats, Reis mit Hähnchen oder ein Brot mit Quark.', refs: ['timing', 'acsm'], r: 'overnight_oats'},
+  {when: '30–60 Min. vorher', icon: '🍌', t: 'Kleiner Snack, falls hungrig', s: 'Leicht verdaulich: Banane, Reiswaffeln mit Honig. Wenig Fett und Ballaststoffe, dann drückt nichts im Magen.', refs: ['timing'], r: 'vorher_snack'},
+  {when: '~60 Min. vorher', icon: '☕', t: 'Kaffee als Booster', s: '1–2 Tassen Kaffee (ca. 3 mg Koffein pro kg, nicht mehr als 200 mg auf einmal) machen wacher und kräftiger. Nicht am späten Nachmittag – stört den Schlaf. Bei Herzproblemen, Schwangerschaft oder Empfindlichkeit weglassen.', refs: ['koffein', 'efsakoff']},
+  {when: 'Vorher & währenddessen', icon: '💧', t: 'Genug trinken', s: 'Ca. 4 Stunden vorher 2 Gläser Wasser, beim Training regelmäßig ein paar Schlucke. Wer stark schwitzt, trinkt danach etwas mehr.', refs: ['trinken']},
+  {when: 'Bis ~2 Std. danach', icon: '💪', t: 'Eiweiß + Kohlenhydrate', s: '20–40 g Eiweiß mit Kohlenhydraten, z. B. Quark mit Banane, Hähnchen-Bowl oder ein Shake. Keine Panik: Es gibt kein 30-Minuten-Fenster – die Tagesmenge zählt am meisten.', refs: ['jaeger', 'fenster'], r: 'quark_banane'},
+  {when: 'Jeden Tag', icon: '🧂', t: 'Kreatin (optional)', s: 'Kein Muss, aber das am besten untersuchte Supplement: 3–5 g Kreatin-Monohydrat täglich, Zeitpunkt egal. Bei Nierenerkrankungen vorher mit dem Arzt sprechen.', refs: ['kreatin']}
+];
