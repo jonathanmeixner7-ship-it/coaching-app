@@ -146,12 +146,24 @@ function viewHeute(c){
   <div class="card row between"><div><div class="label">Erinnerung</div><div>Täglich ab <b>${esc(rem)}</b> Uhr, falls noch etwas offen ist</div></div><input id="remTime" type="time" value="${esc(rem)}" style="width:auto" aria-label="Uhrzeit der Erinnerung"></div>
   </div>`;
 }
+// Wochenansicht: Tag antippen → kurze Übersicht der Übungen (Antippen einer Übung öffnet die Anleitung)
+function dayPreview(c, d){
+  const k = dayKey(d), items = c.plan[k] || [], done = c.done[iso(d)] || [], isToday = iso(d) === iso(today());
+  const mins = items.reduce((a, t) => a + (t.min || 0), 0);
+  const head = `<div style="min-width:0"><b>${DAYNAMES[k]}${isToday ? ' <span class="chip kraft">Heute</span>' : ''}</b><div class="small muted">${items.map(t => (done.includes(t.id) ? '✓ ' : '') + esc(t.title)).join(' · ') || 'Ruhetag'}</div></div><span class="row" style="gap:8px;flex:none"><span class="small muted">${items.length ? mins + ' Min' : ''}</span>${items.length ? '<span class="chev" aria-hidden="true"></span>' : ''}</span>`;
+  if (!items.length) return `<div class="dayline">${head}</div>`;
+  const body = items.map(t => {
+    const ex = t.exercises.length ? t.exercises : (guessEx(t) ? [{ex: guessEx(t), sets: 1, reps: (t.min || '') + ' Min'}] : []);
+    return `<div class="dp-unit"><div class="dp-title"><span class="chip ${t.kind}">${KINDS[t.kind]}</span> <b>${esc(t.title)}</b>${done.includes(t.id) ? ' <span class="small" style="color:var(--done)">✓ erledigt</span>' : ''}</div>${ex.length ? `<div class="dp-list">${ex.map((x, n) => { const e = EXMAP[x.ex]; return e ? `<button class="dp-ex" data-act="openex" data-id="${e.id}"><span class="dp-n">${n + 1}</span><span class="dp-name">${esc(e.name)}</span><span class="dp-sr">${x.sets > 1 ? x.sets + ' × ' : ''}${esc(x.reps)}</span></button>` : ''; }).join('')}</div>` : `<div class="small muted">${t.note ? esc(t.note) : 'Keine einzelnen Übungen eingetragen.'}</div>`}</div>`;
+  }).join('');
+  return `<details class="dayline dp"${isToday ? ' open' : ''}><summary>${head}</summary><div class="dp-body">${body}</div></details>`;
+}
 function viewWoche(c){
   const wd = weekDates();
   return `${head(c, 'Woche')}<div class="stack">
   <div class="stats"><div class="stat"><b>${weekRate(c)}%</b><span class="small muted">erledigt</span></div><div class="stat"><b>${weekMinutes(c)}</b><span class="small muted">aktive Min.</span></div><div class="stat"><b>${streak(c)}</b><span class="small muted">Tage Serie</span></div></div>
   ${strip(c)}
-  <div class="card daylist">${wd.map(d => { const items = c.plan[dayKey(d)] || [], done = c.done[iso(d)] || []; return `<div class="dayline"><div style="min-width:0"><b>${DAYNAMES[dayKey(d)]}</b><div class="small muted">${items.map(t => (done.includes(t.id)?'✓ ':'') + esc(t.title) + (t.exercises.length ? ` (${t.exercises.length} Übungen)` : '')).join(' · ') || 'Ruhetag'}</div></div><span class="small muted" style="flex:none">${items.length ? items.reduce((a,t) => a+(t.min||0), 0) + ' Min' : ''}</span></div>`; }).join('')}</div>
+  <div class="card daylist">${wd.map(d => dayPreview(c, d)).join('')}</div>
   <div class="section"><h2>Muskeln diese Woche</h2></div><div class="card stack">${BODY.pair(mergeLevels(DAYS.flatMap(k => c.plan[k].map(itemMuscles))))}</div>
   </div>`;
 }
