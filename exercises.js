@@ -151,7 +151,7 @@ EX.push(
 );
 const EXMAP = Object.fromEntries(EX.map(e => [e.id, e]));
 // Programme mit eigenem Titelbild (3D-Avatar, KI-erzeugt) → img/prog/<id>.jpg
-const COVERS = ['ruecken', 'rumpf', 'unterer_ruecken', 'mobility', 'gk_mobility', 'gk_home'];
+const COVERS = ['ruecken', 'rumpf', 'unterer_ruecken', 'mobility', 'gk_mobility', 'gk_home', 'beine', 'haltung', 'oberkoerper', 'kreislauf', 'balance', 'studio_gk', 'studio_ok'];
 // Übungen mit echten Fotos (Start- und Endposition), pro Figur: m = Mann, w = Frau → img/ex/<id>_<m|w>_1.jpg und _2.jpg
 const PHOTOS = {kniebeuge: ['m'], kniebeuge_stuhl: ['m'], ausfallschritt: ['m']};
 
