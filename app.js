@@ -41,7 +41,7 @@ function toast(m){ const t = document.getElementById('toast'); t.textContent = m
 function fail(e){ console.error(e); toast('Das hat nicht geklappt. Bitte prüf deine Internetverbindung.'); }
 
 // ---------- Daten laden ----------
-function shape(profile, items, checkins, extras, measures, body){
+function shape(profile, items, checkins, extras, measures, body, checks = []){
   const plan = {}; DAYS.forEach(k => plan[k] = []);
   items.forEach(t => plan[DAYS[t.weekday]].push({id:t.id, title:t.title, kind:t.kind, min:t.minutes, note:t.note, exercises: Array.isArray(t.exercises) ? t.exercises : []}));
   const done = {}; checkins.forEach(c => (done[c.day] ||= []).push(c.item_id));
@@ -52,35 +52,41 @@ function shape(profile, items, checkins, extras, measures, body){
   checkins.forEach(ch => { if (ch.details) { const it = items.find(t => t.id === ch.item_id); history.push({day: ch.day, title: it ? it.title : 'Training', details: ch.details, item: ch.item_id}); } });
   extras.forEach(x => { if (x.details) history.push({day: x.day, title: x.title, details: x.details, extra: x.id}); });
   history.sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
-  return { p: profile, plan, done, extras: ex, workouts, history,
+  const ck = {tag: {}, woche: {}}; checks.forEach(x => { if (ck[x.kind]) ck[x.kind][x.day] = x.data || {}; });
+  return { p: profile, plan, done, extras: ex, workouts, history, checks: ck,
     body: body.sort((a,b) => a.day < b.day ? -1 : 1),
     goal: { title: profile.goal_title, unit: profile.goal_unit, start: profile.goal_start == null ? null : +profile.goal_start,
             target: profile.goal_target == null ? null : +profile.goal_target,
             history: measures.sort((a,b) => a.day < b.day ? -1 : 1).map(m => ({date:m.day, value:+m.value})) } };
 }
 async function q(promise){ const { data, error } = await promise; if (error) throw error; return data; }
+// Tages-/Wochen-Checks: falls die Tabelle (noch) fehlt, läuft die App ohne sie weiter
+const safe = promise => q(promise).catch(e => { console.warn('checks', e); return []; });
 async function loadClient(id){
   const since = iso(addDays(today(), -90));
-  const [profile, items, checkins, extras, measures, body] = await Promise.all([
+  const [profile, items, checkins, extras, measures, body, checks] = await Promise.all([
     q(sb.from('profiles').select('*').eq('id', id).single()),
     q(sb.from('plan_items').select('*').eq('client_id', id).order('created_at')),
     q(sb.from('checkins').select('item_id,day,details').eq('client_id', id).gte('day', since)),
     q(sb.from('extras').select('*').eq('client_id', id).gte('day', since)),
     q(sb.from('measurements').select('*').eq('client_id', id)),
-    q(sb.from('body_measures').select('*').eq('client_id', id))]);
-  return shape(profile, items, checkins, extras, measures, body);
+    q(sb.from('body_measures').select('*').eq('client_id', id)),
+    safe(sb.from('checks').select('kind,day,data').eq('client_id', id).gte('day', since))]);
+  return shape(profile, items, checkins, extras, measures, body, checks);
 }
 async function loadRoster(){
   const since = iso(addDays(today(), -60));
-  const [profiles, items, checkins, extras, measures, body] = await Promise.all([
+  const [profiles, items, checkins, extras, measures, body, checks] = await Promise.all([
     q(sb.from('profiles').select('*').neq('role','coach').order('created_at')),
     q(sb.from('plan_items').select('*').order('created_at')),
     q(sb.from('checkins').select('client_id,item_id,day,details').gte('day', since)),
     q(sb.from('extras').select('*').gte('day', since)),
     q(sb.from('measurements').select('*')),
-    q(sb.from('body_measures').select('*'))]);
+    q(sb.from('body_measures').select('*')),
+    safe(sb.from('checks').select('client_id,kind,day,data').gte('day', since))]);
   const by = (arr, id) => arr.filter(x => x.client_id === id);
-  roster = profiles.map(p => shape(p, by(items,p.id), by(checkins,p.id), by(extras,p.id), by(measures,p.id), by(body,p.id)));
+  roster = profiles.map(p => shape(p, by(items,p.id), by(checkins,p.id), by(extras,p.id), by(measures,p.id), by(body,p.id), by(checks,p.id)));
+  roster.sort((a, b) => AMPEL_ORDER[ampel(a).lvl] - AMPEL_ORDER[ampel(b).lvl]);
 }
 
 // ---------- Berechnungen ----------
@@ -170,6 +176,95 @@ function streakLine(c){
   const w = weekStreak(c);
   return `<div class="streakline"><span class="flame" aria-hidden="true"></span><span><b class="tk-num">${w.n}</b> ${w.n === 1 ? 'Woche' : 'Wochen'} in Folge</span><span class="muted">· diese Woche ${Math.min(w.thisWeek, 99)}/${w.goal}</span><span class="joker ${w.jokerLeft ? '' : 'used'}" title="Ein Joker pro Monat rettet eine schwache Woche">${w.jokerLeft ? '🃏 Joker bereit' : '🃏 Joker genutzt'}</span></div>`;
 }
+// ---------- Tages-Check, Wochen-Check-in, Coach-Ampel ----------
+const DC_Q = [['schlaf','Schlaf',['😫','😕','😐','🙂','😴'],'schlecht','super'],['energie','Energie',['🪫','😮‍💨','😐','🙂','⚡'],'leer','voll'],['stress','Stress',['😌','🙂','😐','😟','🤯'],'entspannt','sehr hoch']];
+const DC_WATER = 8; // Gläser à 0,25 l
+let dcOpen = false;
+const monIso = d => iso(addDays(d, -dayIdx(d)));
+function dayCheck(c){ return c.checks.tag[iso(today())] || {}; }
+function dcDone(d){ return DC_Q.every(([k]) => d[k]); }
+function dailyCheck(c){
+  const d = dayCheck(c), w = d.wasser || 0;
+  if (dcDone(d) && !dcOpen) return `<button class="card dcsum" data-act="dcopen"><span class="dcok">✓</span><span style="min-width:0;flex:1"><b>Tages-Check erledigt</b><span class="small muted" style="display:block">${DC_Q.map(([k, l, em]) => `${l} ${em[d[k]-1]}`).join(' · ')} · ${w} ${w === 1 ? 'Glas' : 'Gläser'}${d.schritte ? ' · ' + d.schritte.toLocaleString('de-DE') + ' Schritte' : ''}</span></span><span class="small muted">Ändern</span></button>`;
+  return `<div class="card stack dc"><div class="row between"><div class="label">Tages-Check</div><span class="small muted">20 Sekunden</span></div>
+   ${DC_Q.map(([k, l, em, lo, hi]) => `<div class="dcq"><div class="row between"><b>${l}</b><span class="small muted">${lo} → ${hi}</span></div><div class="dcb">${em.map((e, i) => `<button class="moodb${d[k] === i+1 ? ' on' : ''}" data-act="dc" data-id="${k}-${i+1}" aria-pressed="${d[k] === i+1}" aria-label="${l} ${i+1} von 5"><span>${e}</span></button>`).join('')}</div></div>`).join('')}
+   <div class="row between dcq"><div><b>Wasser</b><div class="small muted">${(w*0.25).toLocaleString('de-DE')} von 2 Litern</div></div><div class="row" style="gap:8px"><button class="stepb" data-act="dcwater" data-id="-1" aria-label="Ein Glas weniger">−</button><span class="tk-num" style="font-size:1.4rem;min-width:28px;text-align:center">${w}</span><button class="stepb" data-act="dcwater" data-id="1" aria-label="Ein Glas mehr">+</button></div></div>
+   <div class="glasses" aria-hidden="true">${Array.from({length: DC_WATER}, (_, i) => `<i class="${i < w ? 'on' : ''}"></i>`).join('')}</div>
+   <label class="field"><span class="small muted">Schritte heute (optional)</span><input id="dcSteps" type="number" inputmode="numeric" min="0" max="100000" value="${d.schritte || ''}" placeholder="z. B. 8000"></label>
+   ${dcDone(d) ? '<button class="btn" data-act="dcclose">Fertig</button>' : ''}</div>`;
+}
+async function saveDayCheck(data){
+  const k = iso(today()); C.checks.tag[k] = data;
+  await q(sb.from('checks').upsert({client_id: me.id, kind: 'tag', day: k, data, updated_at: new Date().toISOString()}, {onConflict: 'client_id,kind,day'}));
+}
+// Wochen-Check-in: Fr–So für die laufende Woche
+function weekCheckDue(c){ return dayIdx(today()) >= 4 && !c.checks.woche[monIso(today())]; }
+function weekFacts(c){
+  const mon = addDays(today(), -dayIdx(today())), dcs = weekDates().map(d => c.checks.tag[iso(d)]).filter(Boolean);
+  const avg = k => { const v = dcs.map(x => x[k]).filter(Boolean); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : null; };
+  return {einheiten: weekCount(c, mon), minuten: weekMinutes(c), tage: activeDays(c), schlaf: avg('schlaf'), energie: avg('energie'), stress: avg('stress')};
+}
+function weekCheckCard(c){
+  if (weekCheckDue(c)) { const f = weekFacts(c); return `<div class="card hi stack weekcard"><div class="label" style="color:var(--tint)">Wochen-Check-in · 1 Minute</div><h2 style="margin:0">Wie war deine Woche?</h2><div class="small muted">${f.einheiten} Einheiten · ${f.minuten} Min · ${f.tage} aktive Tage. Jonathan schaut sich deine Antworten an und plant danach die nächste Woche.</div><button class="btn" data-act="wkopen">Check-in starten</button></div>`; }
+  const last = c.checks.woche[monIso(addDays(today(), -7))], cur = c.checks.woche[monIso(today())], v = (cur || last || {}).vorsatz;
+  if (cur) return `<div class="card row" style="gap:12px"><span class="dcok">✓</span><div style="min-width:0"><b>Wochen-Check-in gesendet</b><div class="small muted">${v ? 'Dein Vorsatz: „' + esc(v) + '“' : 'Danke! Jonathan meldet sich.'}</div></div></div>`;
+  return v ? `<div class="card row" style="gap:12px"><span class="avatar" style="flex:0 0 auto">🎯</span><div style="min-width:0"><div class="label">Dein Vorsatz diese Woche</div><div>${esc(v)}</div></div></div>` : '';
+}
+function viewWeekCheck(){
+  const W = OV, f = weekFacts(C), t = (id, l, ph) => `<label class="field"><span class="small muted">${l}</span><textarea data-wk="${id}" rows="2" maxlength="300" placeholder="${ph}">${esc(W.data[id] || '')}</textarea></label>`;
+  return `<div class="wrap stack" style="padding-top:28px"><div class="row between"><div class="label" style="color:var(--tint)">Wochen-Check-in</div><button class="btn link" data-act="closeov">Später</button></div><h1>Deine Woche</h1>
+  <div class="stats"><div class="stat"><b>${f.einheiten}</b><span class="small muted">Einheiten</span></div><div class="stat"><b>${f.minuten}</b><span class="small muted">Minuten</span></div><div class="stat"><b>${f.tage}/7</b><span class="small muted">aktive Tage</span></div></div>
+  ${f.schlaf != null ? `<div class="small muted">Laut deinem Tages-Check: Schlaf ${fmt(f.schlaf)}/5 · Energie ${fmt(f.energie)}/5 · Stress ${fmt(f.stress)}/5</div>` : ''}
+  <div class="card stack"><div class="label">Wie zufrieden bist du mit deiner Woche?</div><div class="small muted">1 = gar nicht, 10 = rundum zufrieden</div>
+   <div class="rpe">${Array.from({length: 10}, (_, n) => `<button class="rpeb${W.data.zufrieden === n+1 ? ' on' : ''}" data-act="wkrate" data-id="${n+1}" aria-pressed="${W.data.zufrieden === n+1}">${n+1}</button>`).join('')}</div></div>
+  <div class="card stack">${t('gut', 'Was lief richtig gut?', 'z. B. 3× trainiert trotz Stress')}${t('schwer', 'Was war schwierig?', 'z. B. abends keine Energie')}${t('vorsatz', 'Dein Vorsatz für nächste Woche', 'z. B. jeden Tag 8000 Schritte')}${t('wunsch', 'Frage oder Wunsch an Jonathan (optional)', 'z. B. mehr Übungen für den Rücken')}</div>
+  <button class="btn" data-act="wksave">Check-in senden</button></div>`;
+}
+async function saveWeekCheck(){
+  const W = OV; if (!W.data.zufrieden) { toast('Tipp kurz an, wie zufrieden du bist.'); return; }
+  const f = weekFacts(C), data = {...W.data, einheiten: f.einheiten, minuten: f.minuten, tage: f.tage};
+  ['gut','schwer','vorsatz','wunsch'].forEach(k => data[k] = String(data[k] || '').trim().slice(0, 300));
+  const k = monIso(today());
+  await q(sb.from('checks').upsert({client_id: me.id, kind: 'woche', day: k, data, updated_at: new Date().toISOString()}, {onConflict: 'client_id,kind,day'}));
+  C.checks.woche[k] = data; closeOverlay(); render(); celebrate(); toast('Danke! Jonathan sieht deinen Check-in.');
+}
+// Coach-Ampel: rot = braucht dich jetzt, gelb = im Blick behalten, grün = läuft
+const AMPEL_ORDER = {rot: 0, gelb: 1, gruen: 2};
+function lastActive(c){
+  let last = null;
+  for (const k in c.done) if (c.done[k].length && (!last || k > last)) last = k;
+  for (const k in c.extras) if (c.extras[k].length && (!last || k > last)) last = k;
+  return last;
+}
+function ampel(c){
+  const red = [], yellow = [], T = today(), hasPlan = DAYS.some(k => c.plan[k].length);
+  const la = lastActive(c), since = Math.round((T - new Date((la || String(c.p.created_at || '').slice(0, 10) || iso(T)) + 'T12:00')) / 864e5);
+  if (hasPlan && since >= 5) red.push(la ? `seit ${since} Tagen nichts gemacht` : 'noch nichts abgehakt');
+  else if (hasPlan && since >= 3) yellow.push(`seit ${since} Tagen nichts gemacht`);
+  const pain = (c.history || []).find(h => h.details.feel && h.details.feel.mood === 'schmerz' && h.day >= iso(addDays(T, -7)));
+  if (pain) red.push('meldet Schmerzen');
+  const wk = c.checks.woche[monIso(T)] || c.checks.woche[monIso(addDays(T, -7))];
+  if (wk && wk.zufrieden && wk.zufrieden <= 4) red.push(`Woche nur ${wk.zufrieden}/10`);
+  if (wk && wk.wunsch) yellow.push('hat eine Frage an dich');
+  const tags = Object.keys(c.checks.tag).sort().slice(-3).filter(k => k >= iso(addDays(T, -4))).map(k => c.checks.tag[k]);
+  if (tags.length >= 2) {
+    const avg = k => tags.reduce((a, x) => a + (x[k] || 3), 0) / tags.length;
+    if (avg('energie') <= 2) yellow.push('wenig Energie');
+    if (avg('stress') >= 4) yellow.push('viel Stress');
+    if (avg('schlaf') <= 2) yellow.push('schläft schlecht');
+  }
+  if (!hasPlan) yellow.push('noch kein Plan');
+  if (dayIdx(T) === 0 && hasPlan && !c.checks.woche[monIso(addDays(T, -7))]) yellow.push('Wochen-Check-in fehlt');
+  return red.length ? {lvl: 'rot', why: [...red, ...yellow]} : yellow.length ? {lvl: 'gelb', why: yellow} : {lvl: 'gruen', why: ['läuft']};
+}
+function coachChecks(c){
+  const weeks = Object.keys(c.checks.woche).sort().reverse().slice(0, 2);
+  const lastDays = Object.keys(c.checks.tag).sort().reverse().slice(0, 7);
+  if (!weeks.length && !lastDays.length) return `<div class="card stack" style="gap:6px"><div class="label">Check-ins</div><span class="small muted">Noch kein Tages-Check und kein Wochen-Check-in.</span></div>`;
+  return `<div class="card stack" style="gap:10px"><div class="label">Check-ins</div>
+  ${weeks.map(k => { const w = c.checks.woche[k]; return `<div class="fb"><div class="row between"><b>Woche ab ${shortDate(k)}</b><span class="chip ${w.zufrieden <= 4 ? 'ems' : 'kraft'}">${w.zufrieden}/10 zufrieden</span></div><div class="small muted">${w.einheiten ?? '–'} Einheiten · ${w.minuten ?? '–'} Min · ${w.tage ?? '–'} aktive Tage</div>${[['gut','Lief gut'],['schwer','Schwierig'],['vorsatz','Vorsatz'],['wunsch','Frage an dich']].filter(([q]) => w[q]).map(([q, l]) => `<div class="small"><b>${l}:</b> ${esc(w[q])}</div>`).join('')}</div>`; }).join('<hr class="sep">')}
+  ${lastDays.length ? `${weeks.length ? '<hr class="sep">' : ''}<div class="small muted">Tages-Check (letzte ${lastDays.length})</div><div class="dctable"><span></span><span>Schlaf</span><span>Energie</span><span>Stress</span><span>Wasser</span><span>Schritte</span>${lastDays.map(k => { const d = c.checks.tag[k]; return `<span>${shortDate(k)}</span>${DC_Q.map(([q, , em]) => `<span>${d[q] ? em[d[q]-1] : '–'}</span>`).join('')}<span>${d.wasser || 0}</span><span>${d.schritte ? (d.schritte/1000).toLocaleString('de-DE', {maximumFractionDigits: 1}) + 'k' : '–'}</span>`; }).join('')}</div>` : ''}</div>`;
+}
 function viewHeute(c){
   const T = today(), items = c.plan[dayKey(T)] || [], done = c.done[iso(T)] || [];
   const pct = items.length ? Math.round(items.filter(t => done.includes(t.id)).length / items.length * 100) : 100;
@@ -185,6 +280,8 @@ function viewHeute(c){
   ${strip(c)}
   ${due ? `<div class="reminder"><b>Erinnerung:</b> ${open.map(t => esc(t.title)).join(', ')} ${open.length===1?'wartet':'warten'} noch auf dich.</div>` : ''}
   ${nextCard(c)}
+  ${weekCheckCard(c)}
+  ${dailyCheck(c)}
   <div class="card stack" style="gap:12px">${tempoBars(pct, weekMinutes(c), activeDays(c))}${streakLine(c)}</div>
   ${c.p.coach_note ? `<div class="coachmsg"><span class="avatar">J</span><div style="min-width:0"><div class="small" style="font-weight:600">Jonathan</div><div>${esc(c.p.coach_note)}</div></div></div>` : ''}
   ${items.length ? `<div class="section"><h2>Dein Programm</h2><span class="small muted">${msg}</span></div><div class="list">${items.map(t => taskBtn(t, done.includes(t.id))).join('')}</div>` : ''}
@@ -351,7 +448,7 @@ function openOverlay(){ document.body.style.overflow = 'hidden'; document.getEle
 function closeOverlay(){ OV = null; stopTimer(); document.body.style.overflow = ''; document.getElementById('layer').innerHTML = ''; }
 function renderOverlay(){
   const ov = document.getElementById('ov'); if (!ov || !OV) return;
-  ov.innerHTML = OV.type === 'ex' ? exDetail(EXMAP[OV.id]) : OV.type === 'workout' ? viewWorkout() : viewSummary();
+  ov.innerHTML = OV.type === 'ex' ? exDetail(EXMAP[OV.id]) : OV.type === 'workout' ? viewWorkout() : OV.type === 'week' ? viewWeekCheck() : viewSummary();
 }
 // Pausen- und Satz-Timer
 function startTimer(mode, secs, onDone){
@@ -405,7 +502,8 @@ function viewCoach(){
   return `<div class="top"><div><div class="label">Coach-Bereich</div><h1>Deine Kunden</h1></div><button class="avatar" data-act="menu" aria-label="Abmelden" style="color:var(--warm)">J</button></div>
   <div class="stack">
   ${pending.length ? `<div class="card stack"><div class="label">Neue Anmeldungen</div>${pending.map(c => `<div class="row between" style="flex-wrap:wrap"><div style="min-width:0"><b>${esc(c.p.name||'Ohne Namen')}</b><div class="small muted" style="word-break:break-all">${esc(c.p.email)}</div></div><div class="row" style="gap:6px"><select id="type-${c.p.id}" style="width:auto">${TYPES.map(t => `<option>${t}</option>`).join('')}</select><button class="btn" data-act="approve" data-id="${c.p.id}">Freischalten</button></div></div>`).join('<hr class="sep">')}</div>` : ''}
-  ${active.map(c => { const r = weekRate(c), {pct} = goalPct(c); return `<button class="pick" data-act="coachsel" data-id="${c.p.id}"><span class="avatar">${esc((c.p.name||'?')[0].toUpperCase())}</span><span class="t-body"><b>${esc(c.p.name)}${c.p.age?', '+c.p.age:''}</b> <span class="chip">${esc(c.p.type_label)}</span><span class="small muted" style="display:block;margin-top:4px">Diese Woche ${r}% · ${weekMinutes(c)} Min · Ziel ${pct}%${(() => { const f = [...(c.history || [])].reverse().find(h => h.details.feel); return f ? ` · zuletzt ${moodOf(f.details.feel.mood)}${f.details.feel.rpe ? ' ' + f.details.feel.rpe + '/10' : ''}` : ''; })()}</span><span class="bar" style="display:block;margin-top:8px;height:8px"><span style="width:${r}%;${r<50?'background:var(--warm)':''}"></span></span></span></button>`; }).join('') || (pending.length ? '' : `<div class="card stack"><h2>Noch keine Kunden</h2><p class="muted" style="margin:0">Schick deinen Kunden den Link zur App. Mit Einladungscode sind sie sofort freigeschaltet, sonst erscheinen sie hier unter „Neue Anmeldungen“.</p></div>`)}
+  ${active.length ? (() => { const n = {rot: 0, gelb: 0, gruen: 0}; active.forEach(c => n[ampel(c).lvl]++); return `<div class="ampelsum"><span><i class="adot rot"></i><b>${n.rot}</b> brauchen dich</span><span><i class="adot gelb"></i><b>${n.gelb}</b> im Blick</span><span><i class="adot gruen"></i><b>${n.gruen}</b> laufen</span></div>`; })() : ''}
+  ${active.map(c => { const r = weekRate(c), {pct} = goalPct(c), am = ampel(c); return `<button class="pick" data-act="coachsel" data-id="${c.p.id}"><span class="avatar" style="position:relative">${esc((c.p.name||'?')[0].toUpperCase())}<i class="adot ${am.lvl} onav" aria-hidden="true"></i></span><span class="t-body"><b>${esc(c.p.name)}${c.p.age?', '+c.p.age:''}</b> <span class="chip">${esc(c.p.type_label)}</span><span class="ampelwhy ${am.lvl}">${esc(am.why.join(' · '))}</span><span class="small muted" style="display:block;margin-top:4px">Diese Woche ${r}% · ${weekMinutes(c)} Min · Ziel ${pct}%${(() => { const f = [...(c.history || [])].reverse().find(h => h.details.feel); return f ? ` · zuletzt ${moodOf(f.details.feel.mood)}${f.details.feel.rpe ? ' ' + f.details.feel.rpe + '/10' : ''}` : ''; })()}</span><span class="bar" style="display:block;margin-top:8px;height:8px"><span style="width:${r}%;${r<50?'background:var(--warm)':''}"></span></span></span></button>`; }).join('') || (pending.length ? '' : `<div class="card stack"><h2>Noch keine Kunden</h2><p class="muted" style="margin:0">Schick deinen Kunden den Link zur App. Mit Einladungscode sind sie sofort freigeschaltet, sonst erscheinen sie hier unter „Neue Anmeldungen“.</p></div>`)}
   <div class="card stack"><div class="label">Einladungscodes</div><p class="small muted" style="margin:0">Wer bei der Registrierung einen aktiven Code eingibt, ist sofort freigeschaltet.</p>${codes.map(k => `<form class="row" data-form="code" data-id="${k.id}" style="flex-wrap:wrap"><label class="field" style="min-width:120px"><span class="small muted">${esc(k.type_label)}</span><input id="code-${k.id}" value="${esc(k.code)}" required maxlength="30" autocapitalize="characters"></label><button class="btn" style="align-self:flex-end">Speichern</button><button type="button" class="btn ghost" style="align-self:flex-end" data-act="codeactive" data-id="${k.id}">${k.active ? 'Aktiv' : 'Aus'}</button></form>`).join('')}</div>
   <div class="card stack"><div class="label">Link für Kunden</div><div style="word-break:break-all"><b>${esc(location.origin + location.pathname)}</b></div><button class="btn ghost" data-act="copylink">Link kopieren</button></div>
   <button class="btn ghost" data-act="logout">Abmelden</button></div>`;
@@ -427,7 +525,9 @@ function viewCoachEdit(c){
   const p = c.p;
   return `<div class="top"><button class="btn ghost" data-act="coachback">← Kunden</button><span class="avatar">${esc((p.name||'?')[0].toUpperCase())}</span></div>
   <div class="stack"><h1>${esc(p.name)}</h1>
+  ${(() => { const am = ampel(c); return `<div class="ampelline ${am.lvl}"><i class="adot ${am.lvl}"></i><span>${esc(am.why.join(' · '))}</span></div>`; })()}
   <button class="btn" data-act="startpreview" data-id="${p.id}">App als ${esc(p.name)} ansehen</button>
+  ${coachChecks(c)}
   ${(c.history || []).length ? `<div class="card stack" style="gap:10px"><div class="label">Letzte Trainings & Rückmeldungen</div>${[...c.history].reverse().slice(0, 6).map(h => { const f = h.details.feel || {}, prs = Object.entries(h.details.prs || {}), sets = (h.details.sets || []).reduce((a, x) => a + (x.done || 0), 0); return `<div class="fb"><div class="row between"><b>${esc(h.title)}</b><span class="small muted">${shortDate(h.day)}</span></div><div class="small muted">${sets} Sätze${f.rpe ? ' · Anstrengung ' + f.rpe + '/10' : ''}${f.mood ? ' · ' + moodOf(f.mood) : ''}${prs.length ? ' · Rekord: ' + prs.map(([ex, r]) => esc(EXMAP[ex] ? EXMAP[ex].name : ex) + ' ' + fmt(r.kg) + ' kg').join(', ') : ''}</div>${f.note ? `<div class="fbnote">„${esc(f.note)}“</div>` : ''}</div>`; }).join('<hr class="sep">')}</div>` : ''}
   <div class="stats"><div class="stat"><b>${weekRate(c)}%</b><span class="small muted">diese Woche</span></div><div class="stat"><b>${weekMinutes(c)}</b><span class="small muted">aktive Min.</span></div><div class="stat"><b>${streak(c)}</b><span class="small muted">Tage Serie</span></div></div>
   <form class="card stack" data-form="note"><div class="label">Nachricht an ${esc(p.name)}</div><textarea id="noteTxt" rows="3" maxlength="500">${esc(p.coach_note)}</textarea><button class="btn">Nachricht speichern</button></form>
@@ -505,7 +605,7 @@ document.addEventListener('click', async e => {
   try {
     if (a === 'startpreview') { C = roster.find(x => x.p.id === id); preview = true; tab = 'heute'; render(); scrollTo(0,0); return; }
     if (a === 'endpreview') { preview = false; C = null; closeOverlay(); render(); scrollTo(0,0); return; }
-    if (preview && ['toggle','finish','quickdone','delextra','feelsave'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
+    if (preview && ['toggle','finish','quickdone','delextra','feelsave','dc','dcwater','wksave'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
     // Vollbild
     if (a === 'openex') { OV = {type:'ex', id}; openOverlay(); return; }
     if (a === 'exinfo') { OV.back = {...OV}; const back = OV.back; OV = {type:'ex', id, back}; renderOverlay(); document.getElementById('ov').scrollTop = 0; return; }
@@ -525,6 +625,14 @@ document.addEventListener('click', async e => {
     if (a === 'feelmood') { const note = (document.getElementById('feelNote') || {}).value; OV.feel.mood = id; renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
     if (a === 'feelsave') { await saveFeel(); return; }
     if (a === 'quickdone') { const k = iso(today()); (C.done[k] ||= []).includes(OV.src.item) || C.done[k].push(OV.src.item); await q(sb.from('checkins').upsert({client_id: me.id, item_id: OV.src.item, day: k}, {onConflict: 'item_id,day'})); closeOverlay(); toast('Abgehakt. Weiter so!'); render(); return; }
+    // Tages-Check und Wochen-Check-in
+    if (a === 'dc') { const [k, v] = id.split('-'), d = {...dayCheck(C), [k]: +v}; const wasDone = dcDone(dayCheck(C)); render(); await saveDayCheck(d); if (!wasDone && dcDone(d)) { dcOpen = false; toast('Tages-Check gespeichert. Danke!'); } render(); return; }
+    if (a === 'dcwater') { const d = dayCheck(C), w = Math.max(0, Math.min(16, (d.wasser || 0) + +id)); const nd = {...d, wasser: w}; C.checks.tag[iso(today())] = nd; render(); if (w === DC_WATER && +id > 0) toast('2 Liter geschafft!'); await saveDayCheck(nd); return; }
+    if (a === 'dcopen') { dcOpen = true; render(); return; }
+    if (a === 'dcclose') { dcOpen = false; render(); return; }
+    if (a === 'wkopen') { OV = {type: 'week', data: {}}; openOverlay(); return; }
+    if (a === 'wkrate') { OV.data.zufrieden = +id; renderOverlay(); return; }
+    if (a === 'wksave') { await saveWeekCheck(); return; }
     // Übungen-Seite
     if (a === 'exfilter') { exFilter = id; }
     if (a === 'musclereset') { muscleSel = null; }
@@ -558,7 +666,7 @@ document.addEventListener('click', async e => {
   const y = scrollY; render(); if (me && me.role === 'coach') scrollTo(0, y);
 });
 document.addEventListener('keydown', e => { const mu = e.target.closest && e.target.closest('[data-muscle]'); if (mu && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); mu.dispatchEvent(new MouseEvent('click', {bubbles: true})); } });
-document.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.kg; if (k && OV && OV.list) { const [i, s] = k.split('-').map(Number); OV.list[i].kg[s] = e.target.value; } });
+document.addEventListener('input', e => { const wk = e.target.dataset && e.target.dataset.wk; if (wk && OV && OV.type === 'week') { OV.data[wk] = e.target.value; return; } const k = e.target.dataset && e.target.dataset.kg; if (k && OV && OV.list) { const [i, s] = k.split('-').map(Number); OV.list[i].kg[s] = e.target.value; } });
 
 document.addEventListener('submit', async e => {
   e.preventDefault();
@@ -597,6 +705,7 @@ document.addEventListener('submit', async e => {
   render(); if (me && me.role === 'coach') scrollTo(0, y);
 });
 document.addEventListener('change', async e => {
+  if (e.target.id === 'dcSteps') { if (preview) { toast('Vorschau: hier wird nichts gespeichert'); return; } const n = Math.max(0, Math.min(100000, parseInt(e.target.value) || 0)); try { await saveDayCheck({...dayCheck(C), schritte: n || null}); toast(n ? n.toLocaleString('de-DE') + ' Schritte gespeichert' : 'Schritte gelöscht'); render(); } catch (err) { fail(err); } return; }
   if (e.target.id !== 'remTime' || !e.target.value) return;
   if (preview) { toast('Vorschau: hier wird nichts gespeichert'); return; }
   try { await q(sb.from('profiles').update({reminder: e.target.value}).eq('id', me.id)); C.p.reminder = e.target.value; toast('Erinnerung auf ' + e.target.value + ' Uhr gestellt'); render(); } catch (err) { fail(err); }
