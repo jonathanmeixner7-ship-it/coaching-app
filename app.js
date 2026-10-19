@@ -279,7 +279,6 @@ function proteinGoal(c){ const {kg, src} = refWeight(c), r5 = x => Math.round(x 
 function waterGoal(c, d = today()){ return (c.p.gender === 'w' ? 7 : 8) + ((c.plan[dayKey(d)] || []).length ? 2 : 0); }
 function eatenOf(d){ return (d.essen || []).reduce((a, x) => a + (+x.g || 0), 0); }
 const liters = n => (n * 0.25).toLocaleString('de-DE');
-function refLinks(keys){ return keys.map(k => `<a class="reflink" href="${REFS[k].url}" target="_blank" rel="noopener">${esc(REFS[k].t)}</a>`).join(''); }
 function recipeCard(r){ return `<button class="rcard" data-act="openrecipe" data-id="${r.id}"><img src="${UNSPLASH(r.img, 600, 380)}" alt="${esc(r.name)}" decoding="async"><span class="rtxt"><b>${esc(r.name)}</b><span class="small muted">${r.p} g Eiweiß · ${r.kcal} kcal · ${r.min} Min</span></span></button>`; }
 function viewEssen(c){
   const T = today(), d = dayCheck(c), list = d.essen || [], eaten = eatenOf(d), pg = proteinGoal(c), wg = waterGoal(c), w = d.wasser || 0;
@@ -297,8 +296,7 @@ function viewEssen(c){
   <details class="card"><summary class="row between" style="cursor:pointer;min-height:28px"><b>Dein Ziel: ${pg.g} g Eiweiß am Tag</b><span class="small muted">Warum?</span></summary>
    <div class="stack" style="gap:8px;margin-top:10px"><div class="small">1,6 g pro kg ${pg.src === 'ziel' ? 'Zielgewicht' : 'Körpergewicht'} (${fmt(pg.kg)} kg). Sinnvolle Spanne: ${pg.lo}–${pg.hi} g. Am besten auf 3–4 Mahlzeiten mit je ca. <b>${pg.meal} g</b> verteilen.</div>
    ${pg.src === 'schaetzung' ? '<div class="small" style="color:var(--warm)">Noch geschätzt – trag unter „Körper“ dein Gewicht ein, dann wird dein Ziel genau.</div>' : ''}
-   <div class="small muted">Ab 40 baut der Körper leichter Muskeln ab – genug Eiweiß und Krafttraining sind die beste Gegenstrategie.</div>
-   <div class="refs">${refLinks(['morton', 'jaeger', 'aragon', 'protage'])}</div></div></details>
+   <div class="small muted">Ab 40 baut der Körper leichter Muskeln ab – genug Eiweiß und Krafttraining sind die beste Gegenstrategie.</div></div></details>
 
   ${train.length ? `<div class="card hi stack" style="gap:8px"><div class="label" style="color:var(--tint)">Heute ist Training</div><div><b>${esc(train.map(t => t.title).join(', '))}</b></div><div class="small muted">Vorher: Kohlenhydrate, z. B. Banane. Danach: 20–40 g Eiweiß. Unten bei „Rund ums Training“ steht, wie.</div><div class="row" style="gap:8px"><button class="btn ghost" style="flex:1;min-width:0" data-act="openrecipe" data-id="vorher_snack">🍌 Vorher</button><button class="btn ghost" style="flex:1;min-width:0" data-act="openrecipe" data-id="quark_banane">💪 Nachher</button></div></div>` : ''}
 
@@ -312,9 +310,8 @@ function viewEssen(c){
   <div class="rgrid">${recs.map(recipeCard).join('')}</div>
 
   <div class="section"><h2>Rund ums Training</h2></div>
-  <div class="card stack boost">${BOOST.map(b => `<div class="bt"><span class="bi" aria-hidden="true">${b.icon}</span><div style="min-width:0"><div class="label">${b.when}</div><b>${b.t}</b><div class="small">${b.s}</div>${b.r ? `<button class="btn link inline" data-act="openrecipe" data-id="${b.r}">Rezept: ${esc(RECIPES.find(r => r.id === b.r).name)}</button>` : ''}<div class="refs">${refLinks(b.refs)}</div></div></div>`).join('')}</div>
+  <div class="card stack boost">${BOOST.map(b => `<div class="bt"><span class="bi" aria-hidden="true">${b.icon}</span><div style="min-width:0"><div class="label">${b.when}</div><b>${b.t}</b><div class="small">${b.s}</div>${b.r ? `<button class="btn link inline" data-act="openrecipe" data-id="${b.r}">Rezept: ${esc(RECIPES.find(r => r.id === b.r).name)}</button>` : ''}</div></div>`).join('')}</div>
 
-  <details class="card"><summary style="cursor:pointer;min-height:28px;font-weight:600">Worauf das beruht (Studien)</summary><div class="stack" style="gap:10px;margin-top:10px">${Object.values(REFS).map(r => `<div><a class="reflink" href="${r.url}" target="_blank" rel="noopener">${esc(r.t)}</a><div class="small muted">${esc(r.s)}</div></div>`).join('')}</div></details>
   <p class="small muted" style="margin:0 4px">Allgemeine Infos für gesunde Erwachsene, keine medizinische Beratung. Bei Nierenerkrankungen, Schwangerschaft, Diabetes oder Medikamenten bitte vorher mit dem Arzt sprechen. Nährwerte sind Richtwerte. Fotos: <a href="https://unsplash.com/${UTM}" target="_blank" rel="noopener">Unsplash</a>.</p>
   </div>`;
 }
