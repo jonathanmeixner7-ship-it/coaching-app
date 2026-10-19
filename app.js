@@ -120,7 +120,7 @@ function celebrate(){
   const t0 = performance.now();
   (function f(t){ const k = (t - t0) / 1800; ctx.clearRect(0, 0, W, H); ps.forEach(p => { p.vy += 1.1; p.x += p.vx; p.y += p.vy; p.vx *= .985; p.a += p.s; ctx.save(); ctx.globalAlpha = Math.max(0, 1 - k); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillStyle = p.c; ctx.fillRect(-p.r/2, -p.r/4, p.r, p.r/2); ctx.restore(); }); if (k < 1) requestAnimationFrame(f); else cv.remove(); })(t0);
 }
-const MOODS = [['top','💪','Top'],['gut','🙂','Gut'],['ok','😐','Okay'],['muede','😮‍💨','Müde'],['schmerz','🤕','Schmerzen']];
+const MOODS = [['top','💪','Top'],['gut','🙂','Gut'],['ok','😐','Okay'],['muede','😮‍💨','Müde'],['schmerz','🤕','Schmerz']];
 const moodOf = k => (MOODS.find(m => m[0] === k) || [])[1] || '';
 // Übungen einer Einheit: eingetragene oder aus dem Titel erraten (EMS, Spaziergang, Rad …)
 function guessEx(t){ const s = t.title.toLowerCase(); if (t.kind === 'ems' || s.includes('ems')) return 'ems'; if (s.includes('nordic')) return 'nordic'; if (s.includes('spazier') || s.includes('schritte') || s.includes('walk')) return 'spaziergang'; if (s.includes('rad')) return 'radfahren'; if (s.includes('treppe')) return 'treppen'; return null; }
