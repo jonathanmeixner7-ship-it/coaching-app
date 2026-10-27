@@ -211,7 +211,7 @@ EX.push(
 
 const EXMAP = Object.fromEntries(EX.map(e => [e.id, e]));
 // Programme mit eigenem Titelbild (3D-Avatar, KI-erzeugt) → img/prog/<id>.jpg
-const COVERS = ['ruecken', 'rumpf', 'unterer_ruecken', 'mobility', 'gk_mobility', 'gk_home', 'beine', 'haltung', 'oberkoerper', 'kreislauf', 'balance', 'studio_gk', 'studio_ok'];
+const COVERS = ['ruecken', 'rumpf', 'unterer_ruecken', 'mobility', 'gk_mobility', 'gk_home', 'beine', 'haltung', 'oberkoerper', 'kreislauf', 'balance', 'studio_gk', 'studio_ok', 'studio_beine'];
 // Übungen mit echten Fotos (Start- und Endposition), pro Figur: m = Mann, w = Frau → img/ex/<id>_<m|w>_1.jpg und _2.jpg
 const PHOTOS = {kniebeuge: ['m', 'a'], kniebeuge_stuhl: ['m', 'a'], ausfallschritt: ['m', 'a'], bruecke: ['a'], liegestuetz_knie: ['a'], wandliegestuetz: ['a'], band_bizeps: ['a'], band_pullapart: ['a'], band_rudern: ['a'], band_seitgehen: ['a'], brustoeffner: ['a'], deadbug: ['a'], einbeinstand: ['a'], hueftbeuger: ['a'], katzekuh: ['a'], offenesbuch: ['a'], plank: ['a'], seitstuetz: ['a'], stepup: ['a'], superman: ['a'], treppen: ['a'], vierfuessler: ['a'], wadenheben: ['a'], wandsitzen: ['a']};
 
