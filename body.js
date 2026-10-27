@@ -8,7 +8,7 @@ const BODY = (() => {
   function figure(side, levels = {}, opts = {}){
     const map = SHAPES[side === 'back' ? 'back' : 'front'];
     const groups = Object.entries(map).map(([k, paths]) => {
-      const lv = levels[k] || 0, cls = lv >= 1 ? 'm hot' : lv > 0 ? 'm warm' : 'm';
+      const lv = levels[k] || 0, cls = opts.cls ? 'm ' + (opts.cls[k] || '') : lv >= 1 ? 'm hot' : lv > 0 ? 'm warm' : 'm';
       const attrs = opts.clickable ? ` data-muscle="${k}" role="button" tabindex="0" aria-label="${NAMES[k]}"` : '';
       return `<g class="${cls}"${attrs}><title>${NAMES[k]}</title>${paths}</g>`;
     }).join('');

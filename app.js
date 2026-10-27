@@ -155,6 +155,30 @@ const moodOf = k => (MOODS.find(m => m[0] === k) || [])[1] || '';
 // Übungen einer Einheit: eingetragene oder aus dem Titel erraten (EMS, Spaziergang, Rad …)
 function guessEx(t){ const s = t.title.toLowerCase(); if (t.kind === 'ems' || s.includes('ems')) return 'ems'; if (s.includes('nordic')) return 'nordic'; if (s.includes('spazier') || s.includes('schritte') || s.includes('walk')) return 'spaziergang'; if (s.includes('rad')) return 'radfahren'; if (s.includes('treppe')) return 'treppen'; return null; }
 function itemMuscles(t){ if (t.exercises.length) return muscleLevels(t.exercises); const g = guessEx(t); return g ? muscleLevels([g]) : {}; }
+// Muskel-Erholung: wie stark ist jeder Muskel noch von den letzten Trainings belastet (0 = erholt, 1 = gerade trainiert)
+const BIG = ['brust','latissimus','unterer_ruecken','po','oberschenkel_vorne','oberschenkel_hinten'];
+function recovery(c){
+  const now = Date.now(), f = {}, ev = [], seen = new Set();
+  for (const h of c.history || []) { seen.add(h.item ? h.item + h.day : 'x' + h.extra); const lv = {}; (h.details.sets || []).filter(st => st.done > 0 && EXMAP[st.ex]).forEach(st => { const l = muscleLevels([st.ex]); for (const k in l) lv[k] = Math.max(lv[k] || 0, l[k] * Math.min(1, .5 + st.done / 6)); }); ev.push({day: h.day, lv}); }
+  for (const day in c.done) c.done[day].forEach(id => { if (seen.has(id + day)) return; const t = (c.plan[dayKey(day + 'T12:00')] || []).find(x => x.id === id); if (!t) return;
+    ev.push({day, lv: t.kind === 'ems' ? Object.fromEntries(Object.keys(BODY.NAMES).map(k => [k, .7])) : t.kind === 'kraft' ? itemMuscles(t) : {}}); });
+  for (const e of ev) { const hrs = Math.max(2, (now - new Date(e.day + 'T18:00').getTime()) / 36e5); if (hrs > 96) continue;
+    for (const k in e.lv) { const rest = Math.max(0, 1 - hrs / (BIG.includes(k) ? 72 : 48)); f[k] = Math.min(1, Math.max(f[k] || 0, e.lv[k] * rest) + (f[k] ? .1 * e.lv[k] * rest : 0)); } }
+  return f;
+}
+const recState = v => v >= .45 ? 'rec-red' : v >= .15 ? 'rec-yel' : 'rec-grn';
+function recoveryCard(c){
+  const f = recovery(c); if (!Object.values(f).some(v => v >= .15)) return '';
+  const cls = Object.fromEntries(Object.keys(BODY.NAMES).filter(k => k !== 'unterarme').map(k => [k, recState(f[k] || 0)]));
+  const pause = Object.keys(cls).filter(k => cls[k] === 'rec-red'), fast = Object.keys(cls).filter(k => cls[k] === 'rec-yel');
+  const areas = [...new Set(Object.values(AREA_OF))].filter(a => Object.keys(AREA_OF).filter(k => AREA_OF[k] === a).every(k => (cls[k] || 'rec-grn') === 'rec-grn'));
+  return `<div class="section"><h2>Muskel-Erholung</h2></div><div class="card stack">${BODY.pair({}, {cls})}
+  <div class="reclegend"><span><i class="rdot rec-red"></i>Braucht Pause</span><span><i class="rdot rec-yel"></i>Fast erholt</span><span><i class="rdot rec-grn"></i>Bereit</span></div>
+  ${pause.length ? `<div class="small"><b>Gönn noch Pause:</b> ${pause.map(k => BODY.NAMES[k]).join(', ')}</div>` : ''}
+  ${fast.length ? `<div class="small"><b>Fast erholt:</b> ${fast.map(k => BODY.NAMES[k]).join(', ')}</div>` : ''}
+  ${areas.length ? `<div class="small" style="color:var(--done)"><b>Heute gut trainierbar:</b> ${areas.join(', ')}</div>` : ''}
+  <div class="small muted">Grobe Richtwerte: große Muskeln brauchen etwa 3 Tage, kleine etwa 2. Hör auf dein Gefühl.</div></div>`;
+}
 function mergeLevels(list){ const out = {}; list.forEach(lv => { for (const k in lv) out[k] = Math.max(out[k] || 0, lv[k]); }); return out; }
 function latestBody(c){ const v = {}, first = {}; for (const r of c.body) for (const [k] of MEASURES) if (r[k] != null) { if (first[k] == null) first[k] = +r[k]; v[k] = +r[k]; } return {v, first}; }
 
@@ -486,6 +510,7 @@ function viewHeute(c){
   <div class="card stack" style="gap:12px">${tempoBars(pct, weekMinutes(c), activeDays(c))}${streakLine(c)}</div>
   ${c.p.coach_note ? `<div class="coachmsg"><span class="avatar">J</span><div style="min-width:0"><div class="small" style="font-weight:600">Jonathan</div><div>${esc(c.p.coach_note)}</div></div></div>` : ''}
   ${items.length ? `<div class="section"><h2>Dein Programm</h2><span class="small muted">${msg}</span></div><div class="list">${items.map(t => taskBtn(t, done.includes(t.id))).join('')}</div>` : ''}
+  ${recoveryCard(c)}
   ${Object.keys(lv).length ? `<div class="section"><h2>Heute trainiert</h2></div><div class="card stack">${BODY.pair(lv)}${muscleChips(lv)}</div>` : ''}
   <div class="section"><h2>${items.length ? 'Lust auf mehr?' : 'Für deinen freien Tag'}</h2><button class="btn link" data-tab="uebungen">Alle</button></div>${routineCard(sugg)}
   ${ex.length ? `<div class="card stack" style="gap:8px"><div class="label">Extra heute</div>${ex.map(x => `<div class="row between"><span>${esc(x.title)}</span><span class="row" style="gap:6px"><span class="chip">${x.min} Min</span><button class="btn link" style="color:var(--danger)" data-act="delextra" data-id="${x.id}">Löschen</button></span></div>`).join('')}</div>` : ''}
@@ -691,7 +716,49 @@ function viewSummary(){
    <label class="field"><span class="small muted">Nachricht an Jonathan (optional)</span><input id="feelNote" maxlength="300" placeholder="z. B. Knie hat leicht gezwickt"></label>
    <button class="btn" data-act="feelsave">Rückmeldung senden</button></div>
   <div class="card hi stack"><div class="label">Trainierte Muskeln</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
+  <div class="card stack"><div class="label">Für deine Story</div>
+   ${S.share ? `<img class="shareprev" src="${S.share.url}" alt="Dein Training als Bild">${navigator.canShare && navigator.canShare({files: [S.share.file]}) ? '<button class="btn" data-act="sharego">Teilen</button>' : `<a class="btn" href="${S.share.url}" download="training.png">Bild speichern</a>`}<div class="small muted" style="text-align:center">Auf dem iPhone geht auch: Bild lange drücken → „In Fotos sichern“.</div>`
+     : `<div class="small muted">Mach aus deinem Training ein Bild für Instagram & Co.</div><button class="btn ghost" data-act="sharemake">📸 Story-Bild erstellen</button>`}</div>
   <button class="btn link" data-act="closeov">Ohne Rückmeldung schließen</button></div>`;
+}
+// Story-Bild (1080×1920) nach dem Training: Logo, Titel, Zahlen, Rekorde, trainierte Muskeln
+const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+async function bodyCanvas(side, lv, w){
+  const h = Math.round(w * 369 / 200), cv = Object.assign(document.createElement('canvas'), {width: w, height: h}), x = cv.getContext('2d');
+  x.drawImage(await loadImg(`img/anatomy_${side}.png?v=1`), 0, 0, w, h);
+  const svg = new DOMParser().parseFromString(BODY.figure(side, lv), 'text/html').querySelector('svg');
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); svg.setAttribute('width', w); svg.setAttribute('height', h);
+  svg.insertAdjacentHTML('afterbegin', '<style>.m{fill:transparent}.hot{fill:#FF3B30;fill-opacity:.85}.warm{fill:#FF9500;fill-opacity:.6}</style>');
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], {type: 'image/svg+xml'}));
+  try { x.globalCompositeOperation = 'multiply'; x.drawImage(await loadImg(url), 0, 0, w, h); } finally { URL.revokeObjectURL(url); }
+  return cv;
+}
+async function makeShareCard(S){
+  const W = 1080, H = 1920, cv = Object.assign(document.createElement('canvas'), {width: W, height: H}), x = cv.getContext('2d');
+  const F = (wt, px) => `${wt} ${px}px -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif`;
+  const g = x.createLinearGradient(0, 0, W * .4, H); g.addColorStop(0, '#2A0509'); g.addColorStop(.55, '#0E0E10'); g.addColorStop(1, '#000'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  // Tempo-Streifen wie im Logo
+  x.save(); x.globalAlpha = .12; x.fillStyle = '#C8102E'; for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(W - 420 + i * 120, 0); x.lineTo(W - 340 + i * 120, 0); x.lineTo(W - 740 + i * 120, H); x.lineTo(W - 820 + i * 120, H); x.fill(); } x.restore();
+  try { const logo = await loadImg('img/logo.png'); x.save(); x.beginPath(); x.roundRect(80, 96, 112, 112, 26); x.clip(); x.drawImage(logo, 80, 96, 112, 112); x.restore(); } catch (_) {}
+  x.fillStyle = '#fff'; x.font = F(800, 40); x.fillText('JONATHAN COACHING', 220, 148);
+  x.fillStyle = 'rgba(255,255,255,.6)'; x.font = F(500, 34); x.fillText(new Date().toLocaleDateString('de-DE', {weekday: 'long', day: 'numeric', month: 'long'}), 220, 196);
+  x.fillStyle = '#FF4D5E'; x.font = F(800, 42); x.fillText('TRAINING GESCHAFFT', 80, 340);
+  x.fillStyle = '#fff'; let fs = 104; x.font = F(800, fs); while (x.measureText(S.title).width > W - 160 && fs > 56) { fs -= 6; x.font = F(800, fs); } x.fillText(S.title, 80, 340 + fs + 10);
+  const kgSum = Math.round(S.list.reduce((a, it) => a + it.done.reduce((b, d, s) => { const kg = parseNum(it.kg[s]), r = repsNum(it.reps); return b + (d && kg && r ? kg * r : 0); }, 0), 0));
+  const stats = [[S.min, 'Minuten'], [S.sets, 'Sätze'], [S.exCount, 'Übungen']].concat(kgSum ? [[kgSum.toLocaleString('de-DE'), 'kg bewegt']] : []);
+  const sy = 560, sw = (W - 160 - (stats.length - 1) * 24) / stats.length;
+  stats.forEach(([v, l], i) => { const sx = 80 + i * (sw + 24); x.fillStyle = 'rgba(255,255,255,.08)'; x.beginPath(); x.roundRect(sx, sy, sw, 190, 36); x.fill();
+    x.fillStyle = '#fff'; x.font = F(800, stats.length > 3 ? 64 : 80); x.fillText(String(v), sx + 32, sy + 104); x.fillStyle = 'rgba(255,255,255,.6)'; x.font = F(500, 32); x.fillText(l, sx + 32, sy + 156); });
+  let y = sy + 270; const prs = Object.entries(S.prs || {});
+  if (prs.length) { x.fillStyle = '#FF4D5E'; x.font = F(800, 36); x.fillText(prs.length === 1 ? 'NEUER REKORD' : 'NEUE REKORDE', 80, y); y += 20;
+    prs.slice(0, 2).forEach(([ex, r]) => { y += 64; x.fillStyle = '#fff'; x.font = F(700, 44); x.fillText(`🏆 ${EXMAP[ex].name}`.slice(0, 34), 80, y); x.fillStyle = '#FF4D5E'; x.textAlign = 'right'; x.fillText(`${fmt(r.kg)} kg`, W - 80, y); x.textAlign = 'left'; }); y += 40; }
+  const lv = muscleLevels(S.list.filter(it => it.done.some(Boolean))), bw = 400, bh = Math.round(bw * 369 / 200), by = Math.max(y + 20, H - bh - 200);
+  x.fillStyle = 'rgba(255,255,255,.92)'; x.beginPath(); x.roundRect(80, by - 30, W - 160, bh + 60, 48); x.fill();
+  const [fr, bk] = await Promise.all([bodyCanvas('front', lv, bw), bodyCanvas('back', lv, bw)]);
+  x.drawImage(fr, W / 2 - bw - 10, by, bw, bh); x.drawImage(bk, W / 2 + 10, by, bw, bh);
+  x.fillStyle = 'rgba(255,255,255,.5)'; x.font = F(600, 30); x.textAlign = 'center'; x.fillText('Trainiert mit Jonathan Coaching · @jonathan7mxr', W / 2, H - 80); x.textAlign = 'left';
+  const blob = await new Promise(ok => cv.toBlob(ok, 'image/png'));
+  return {file: new File([blob], 'training.png', {type: 'image/png'}), url: URL.createObjectURL(blob)};
 }
 function openOverlay(){ document.body.style.overflow = 'hidden'; document.getElementById('layer').innerHTML = '<div class="overlay" id="ov"></div><div id="timerbox"></div>'; renderOverlay(); }
 function closeOverlay(){ clearInterval(spinPreview.h); OV = null; stopTimer(); document.body.style.overflow = ''; document.getElementById('layer').innerHTML = ''; }
@@ -879,6 +946,8 @@ document.addEventListener('click', async e => {
     if (a === 'feelrpe') { const note = (document.getElementById('feelNote') || {}).value; OV.feel.rpe = +id; renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
     if (a === 'feelmood') { const note = (document.getElementById('feelNote') || {}).value; OV.feel.mood = id; renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
     if (a === 'feelsave') { await saveFeel(); return; }
+    if (a === 'sharemake') { b.disabled = true; b.textContent = 'Bild wird erstellt …'; const note = (document.getElementById('feelNote') || {}).value; OV.share = await makeShareCard(OV); renderOverlay(); if (note) document.getElementById('feelNote').value = note; return; }
+    if (a === 'sharego') { try { await navigator.share({files: [OV.share.file], title: OV.title}); } catch (err) { if (err.name !== 'AbortError') toast('Teilen ging nicht – halte das Bild gedrückt und sichere es.'); } return; }
     if (a === 'quickdone') { const k = iso(today()); (C.done[k] ||= []).includes(OV.src.item) || C.done[k].push(OV.src.item); await q(sb.from('checkins').upsert({client_id: me.id, item_id: OV.src.item, day: k}, {onConflict: 'item_id,day'})); closeOverlay(); toast('Abgehakt. Weiter so!'); render(); return; }
     if (a === 'spinsave') { try { await saveSpin(); } catch (err) { if (OV) { OV.step = 'trim'; renderOverlay(); spinPreview(); } fail(err); } return; }
     // Essen
