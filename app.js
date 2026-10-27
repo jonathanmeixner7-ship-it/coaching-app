@@ -53,7 +53,7 @@ function alternatives(e, skip){
   // erst Übungen vom selben Ort (Studio bleibt Studio, Zuhause bleibt Zuhause), nur wenn zu wenige da sind auch die anderen
   const sameOrt = x => x.ort === 'beides' || e.ort === 'beides' || x.ort === e.ort;
   const all = EX.filter(x => x.id !== e.id && x.id !== 'ems' && !skip.includes(x.id) && x.kat === e.kat && x.ort !== 'draussen' && x.m.some(k => e.m.includes(k)))
-    .map(x => ({x, sc: (x.m[0] === e.m[0] ? 4 : 0) + x.m.filter(k => e.m.includes(k)).length * 2 + x.s.filter(k => e.s.includes(k)).length}))
+    .map(x => ({x, sc: (x.m[0] === e.m[0] ? 4 : 0) + x.m.filter(k => e.m.includes(k)).length * 2 + x.s.filter(k => e.s.includes(k)).length + (x.ort === e.ort ? 2 : 0)}))
     .sort((a, b) => b.sc - a.sc).map(a => a.x);
   const first = all.filter(sameOrt);
   return (first.length >= 3 ? first : first.concat(all.filter(x => !sameOrt(x)))).slice(0, 6);
