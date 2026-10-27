@@ -619,7 +619,7 @@ function exDetail(e){
   const lv = muscleLevels([e.id]);
   return `<div class="wrap stack"><div class="top"><button class="btn ghost" data-act="closeov">← Zurück</button><span class="chip ${e.kat === 'ems' ? 'ems' : 'kraft'}">${esc(KAT[e.kat])}</span></div>
   <h1>${esc(e.name)}</h1>
-  ${C && e.kat !== 'ems' ? `<div class="seg" style="grid-template-columns:repeat(3,1fr)">${[['info','Anleitung'],['verlauf','Verlauf'],['fortschritt','Fortschritt']].map(([k, l]) => `<button data-act="extab" data-id="${k}" aria-pressed="${(OV.tab || 'info') === k}">${l}</button>`).join('')}</div>` : ''}
+  ${C && e.kat !== 'ems' ? `<div class="seg seg3">${[['info','Anleitung'],['verlauf','Verlauf'],['fortschritt','Fortschritt']].map(([k, l]) => `<button data-act="extab" data-id="${k}" aria-pressed="${(OV.tab || 'info') === k}">${l}</button>`).join('')}</div>` : ''}
   ${C && OV.tab === 'verlauf' ? exVerlauf(e) : C && OV.tab === 'fortschritt' ? exFortschritt(e) : `<div class="animbox">${exMedia(e, lv)}</div>
   <div class="card stack"><div class="label">Diese Muskeln arbeiten</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">${esc(ORT[e.ort])}</span><span class="chip">${esc(e.geraet)}</span><span class="chip">${e.sets} × ${esc(e.reps)}</span></div>
