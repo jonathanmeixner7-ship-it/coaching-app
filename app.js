@@ -50,10 +50,13 @@ function gearOf(e){
 }
 // Alternativen zum Tauschen: gleicher Hauptmuskel, passender Ort, ähnlichste zuerst
 function alternatives(e, skip){
-  const okOrt = x => x.ort === 'draussen' ? e.ort === 'draussen' : e.ort === 'studio' ? true : e.ort === 'zuhause' ? x.ort !== 'studio' : true;
-  return EX.filter(x => x.id !== e.id && x.id !== 'ems' && !skip.includes(x.id) && x.kat === e.kat && okOrt(x) && x.m.some(k => e.m.includes(k)))
-    .map(x => ({x, sc: (x.m[0] === e.m[0] ? 4 : 0) + x.m.filter(k => e.m.includes(k)).length * 2 + x.s.filter(k => e.s.includes(k)).length + (x.ort === e.ort ? 1 : 0)}))
-    .sort((a, b) => b.sc - a.sc).slice(0, 6).map(a => a.x);
+  // erst Übungen vom selben Ort (Studio bleibt Studio, Zuhause bleibt Zuhause), nur wenn zu wenige da sind auch die anderen
+  const sameOrt = x => x.ort === 'beides' || e.ort === 'beides' || x.ort === e.ort;
+  const all = EX.filter(x => x.id !== e.id && x.id !== 'ems' && !skip.includes(x.id) && x.kat === e.kat && x.ort !== 'draussen' && x.m.some(k => e.m.includes(k)))
+    .map(x => ({x, sc: (x.m[0] === e.m[0] ? 4 : 0) + x.m.filter(k => e.m.includes(k)).length * 2 + x.s.filter(k => e.s.includes(k)).length}))
+    .sort((a, b) => b.sc - a.sc).map(a => a.x);
+  const first = all.filter(sameOrt);
+  return (first.length >= 3 ? first : first.concat(all.filter(x => !sameOrt(x)))).slice(0, 6);
 }
 let OV = null;                       // offenes Vollbild: {type:'ex', id} | {type:'workout', …} | {type:'summary', …}
 let timer = null;                    // {mode:'rest'|'work', end, total, onDone}
