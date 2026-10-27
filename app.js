@@ -166,9 +166,9 @@ function recovery(c){
     for (const k in e.lv) { const rest = Math.max(0, 1 - hrs / (BIG.includes(k) ? 72 : 48)); f[k] = Math.min(1, Math.max(f[k] || 0, e.lv[k] * rest) + (f[k] ? .1 * e.lv[k] * rest : 0)); } }
   return f;
 }
-const recState = v => v >= .45 ? 'rec-red' : v >= .15 ? 'rec-yel' : 'rec-grn';
+const recState = v => v >= .6 ? 'rec-red' : v >= .2 ? 'rec-yel' : 'rec-grn';
 function recoveryCard(c){
-  const f = recovery(c); if (!Object.values(f).some(v => v >= .15)) return '';
+  const f = recovery(c); if (!Object.values(f).some(v => v >= .2)) return '';
   const cls = Object.fromEntries(Object.keys(BODY.NAMES).filter(k => k !== 'unterarme').map(k => [k, recState(f[k] || 0)]));
   const pause = Object.keys(cls).filter(k => cls[k] === 'rec-red'), fast = Object.keys(cls).filter(k => cls[k] === 'rec-yel');
   const areas = [...new Set(Object.values(AREA_OF))].filter(a => Object.keys(AREA_OF).filter(k => AREA_OF[k] === a).every(k => (cls[k] || 'rec-grn') === 'rec-grn'));
