@@ -251,6 +251,16 @@ svg.body .ring{fill:none;stroke:var(--accent);stroke-width:2.2}
 .exitem .thumb{flex:none;width:80px;height:80px;border-radius:14px;background:var(--card2);padding:2px;display:grid;place-items:center;overflow:hidden}
 .exitem .thumb svg{max-height:76px}
 .exitem .thumb .photoanim{border-radius:12px}
+.exrow{display:flex;align-items:center;position:relative}
+.exrow + .exrow::before{content:"";position:absolute;top:0;left:104px;right:0;border-top:.5px solid var(--line)}
+.exrow .exitem{flex:1;min-width:0;padding-right:4px}
+.exrow .exitem::after{display:none}
+.pickbtn{flex:none;width:40px;height:40px;margin-right:12px;border-radius:50%;border:1.5px solid var(--tint);background:transparent;color:var(--tint);font-size:1.35rem;font-weight:500;line-height:1;cursor:pointer}
+.pickbtn.on{background:var(--tint);color:var(--on-tint, #fff)}
+.swapbox{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:16px;background:var(--card2)}
+.swapitem{display:flex;gap:12px;align-items:center;text-align:left;border:0;background:var(--card);border-radius:14px;padding:6px 12px 6px 6px;color:var(--fg);font:inherit;cursor:pointer}
+.swapitem .sthumb{flex:none;width:56px;height:56px;border-radius:12px;background:var(--card2);overflow:hidden;display:grid;place-items:center}
+.swapitem .sthumb svg{max-height:54px}
 .routine{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;min-height:300px;padding-top:170px !important;border-radius:24px;padding:16px;overflow:hidden;color:#fff;background:linear-gradient(160deg,#2B2D31,#141516)}
 .routine .mini{position:absolute;left:0;right:0;top:0;height:170px;width:auto;background:none;border-radius:0;padding:10px 10px 0}
 .routine .mini svg{height:100%;max-height:none;width:100%}
@@ -373,10 +383,10 @@ details.dp[open] .chev{transform:rotate(225deg) translateY(-2px)}
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=35"></script>
-<script src="anim.js?v=35"></script>
-<script src="exercises.js?v=35"></script>
-<script src="nutrition.js?v=35"></script>
-<script src="app.js?v=35"></script>
+<script src="body.js?v=36"></script>
+<script src="anim.js?v=36"></script>
+<script src="exercises.js?v=36"></script>
+<script src="nutrition.js?v=36"></script>
+<script src="app.js?v=36"></script>
 </body>
 </html>

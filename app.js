@@ -33,7 +33,28 @@ let C = null;                        // geladener Kunde
 let roster = [];                     // Coach: alle Kunden mit Daten
 let codes = [];                      // Coach: Einladungscodes
 let tab = 'heute', coachSel = null, coachEx = null, authMode = 'login', authMsg = '', busy = false;
-let exFilter = 'alle', muscleSel = null, preview = false;
+let exFilter = 'alle', muscleSel = null, preview = false, gearSel = 'alle';
+// Eigenes Training aus der Übungsbibliothek (Muskel antippen → +), bleibt auf dem Gerät gespeichert
+let picks = (() => { try { return JSON.parse(localStorage.getItem('jc_picks') || '[]').filter(id => EXMAP[id]); } catch (_) { return []; } })();
+const savePicks = () => { try { localStorage.setItem('jc_picks', JSON.stringify(picks)); } catch (_) {} };
+// Geräte-Gruppen für den Filter bei einem Muskel
+const GEAR = [['langhantel','Langhantel'],['kurzhantel','Kurzhantel'],['kabel','Kabelzug'],['maschine','Maschine'],['band','Band'],['ohne','Ohne Geräte']];
+function gearOf(e){
+  const g = e.geraet.toLowerCase(), out = [];
+  if (/langhantel|sz-stange|landmine/.test(g)) out.push('langhantel');
+  if (/kurzhantel/.test(g)) out.push('kurzhantel');
+  if (/kabel/.test(g)) out.push('kabel');
+  if (/maschine|multipresse|presse|butterfly|scottbank|dip-station|hyperextension|t-bar/.test(g)) out.push('maschine');
+  if (/band/.test(g)) out.push('band');
+  return out.length ? out : ['ohne'];
+}
+// Alternativen zum Tauschen: gleicher Hauptmuskel, passender Ort, ähnlichste zuerst
+function alternatives(e, skip){
+  const okOrt = x => x.ort === 'draussen' ? e.ort === 'draussen' : e.ort === 'studio' ? true : e.ort === 'zuhause' ? x.ort !== 'studio' : true;
+  return EX.filter(x => x.id !== e.id && x.id !== 'ems' && !skip.includes(x.id) && x.kat === e.kat && okOrt(x) && x.m.some(k => e.m.includes(k)))
+    .map(x => ({x, sc: (x.m[0] === e.m[0] ? 4 : 0) + x.m.filter(k => e.m.includes(k)).length * 2 + x.s.filter(k => e.s.includes(k)).length + (x.ort === e.ort ? 1 : 0)}))
+    .sort((a, b) => b.sc - a.sc).slice(0, 6).map(a => a.x);
+}
 let OV = null;                       // offenes Vollbild: {type:'ex', id} | {type:'workout', …} | {type:'summary', …}
 let timer = null;                    // {mode:'rest'|'work', end, total, onDone}
 
@@ -496,7 +517,17 @@ function viewUebungen(c){
   const list = EX.filter(e => e.id !== 'ems').filter(e => exFilter === 'alle' ? true : exFilter === 'mobility' || exFilter === 'ausdauer' ? e.kat === exFilter : e.ort === exFilter || e.ort === 'beides')
                  .filter(e => !muscleSel || e.m.includes(muscleSel) || e.s.includes(muscleSel));
   const lv = muscleSel ? {[muscleSel]: 1} : {};
+  const gears = muscleSel ? GEAR.filter(([k]) => list.some(e => gearOf(e).includes(k))) : [];
+  const shown = muscleSel && gearSel !== 'alle' ? list.filter(e => gearOf(e).includes(gearSel)) : list;
+  const row = e => `<div class="exrow"><button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)}${muscleSel ? '' : ' · ' + esc(KAT[e.kat])}</span></span></button><button class="pickbtn${picks.includes(e.id) ? ' on' : ''}" data-act="pick" data-id="${e.id}" aria-pressed="${picks.includes(e.id)}" aria-label="${esc(e.name)} ${picks.includes(e.id) ? 'aus deinem Training nehmen' : 'zu deinem Training hinzufügen'}">${picks.includes(e.id) ? '✓' : '+'}</button></div>`;
+  const main = shown.filter(e => !muscleSel || e.m.includes(muscleSel)), help = muscleSel ? shown.filter(e => !e.m.includes(muscleSel)) : [];
+  const exBlock = muscleSel
+    ? `${main.length ? `<div class="label" style="margin:4px 4px 0">Trainiert ${esc(BODY.NAMES[muscleSel])} hauptsächlich · ${main.length}</div><div class="exlist">${main.map(row).join('')}</div>` : ''}
+       ${help.length ? `<div class="label" style="margin:4px 4px 0">Hilft mit · ${help.length}</div><div class="exlist">${help.map(row).join('')}</div>` : ''}
+       ${shown.length ? '' : '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}`
+    : `<div class="exlist">${shown.map(row).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>`;
   return `${head(c, 'Übungen')}<div class="stack">
+  ${picks.length ? `<div class="card hi stack" style="gap:10px"><div class="row between"><div><div class="label" style="color:var(--tint)">Dein Training</div><b>${picks.length} ${picks.length === 1 ? 'Übung' : 'Übungen'} ausgewählt</b></div><button class="btn ghost" style="min-height:38px;padding:6px 12px" data-act="pickclear">Leeren</button></div><div class="small muted">${picks.map(id => esc(EXMAP[id].name)).join(' · ')}</div><button class="btn" data-act="pickstart">Training starten</button></div>` : ''}
   <div class="section"><h2>Für zuhause</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'zuhause' && !r.nurCoach).length} Programme</span></div>
   <div class="routines">${ROUTINES.filter(r => r.ort === 'zuhause' && !r.nurCoach).map(routineCard).join('')}</div>
   <div class="section"><h2>Im Studio</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'studio' && !r.nurCoach).length} Programme</span></div>
@@ -504,7 +535,9 @@ function viewUebungen(c){
   <div class="section"><h2>Alle Übungen</h2><span class="small muted">${list.length}</span></div>
   <div class="card stack"><div class="label">${muscleSel ? 'Übungen für: ' + BODY.NAMES[muscleSel] : 'Tipp auf einen Muskel'}</div>${BODY.pair(lv, {clickable:true})}${muscleSel ? '<button class="btn ghost" data-act="musclereset">Alle Muskeln zeigen</button>' : ''}</div>
   <div class="filters">${FILTERS.map(([k,l]) => `<button class="fchip" data-act="exfilter" data-id="${k}" aria-pressed="${exFilter===k}">${l}</button>`).join('')}</div>
-  <div class="exlist">${list.map(e => `<button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)} · ${esc(KAT[e.kat])}</span></span></button>`).join('') || '<div class="card muted">Keine Übung passt zu diesem Filter.</div>'}</div>
+  ${gears.length > 1 ? `<div class="filters">${[['alle','Alle Geräte'], ...gears].map(([k,l]) => `<button class="fchip" data-act="gearfilter" data-id="${k}" aria-pressed="${gearSel===k}">${l}</button>`).join('')}</div>` : ''}
+  ${muscleSel ? '' : '<p class="small muted" style="margin:0 4px">Mit + stellst du dir dein eigenes Training zusammen.</p>'}
+  ${exBlock}
   <p class="credit">Bei Schmerzen abbrechen und mit Jonathan sprechen. Muskelmodell: Wikimedia Commons „Muscular system“ und wger.de, Lizenz CC BY-SA.</p>
   </div>`;
 }
@@ -588,7 +621,7 @@ function exDetail(e){
   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">${esc(ORT[e.ort])}</span><span class="chip">${esc(e.geraet)}</span><span class="chip">${e.sets} × ${esc(e.reps)}</span></div>
   <div class="card stack"><div class="label">So geht's</div><ol class="steps">${e.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
   <div class="card stack"><div class="label" style="color:var(--tint)">Tipp</div><div>${esc(e.tip)}</div><div class="label" style="color:var(--warm)">Typischer Fehler</div><div>${esc(e.fehler)}</div></div>
-  ${OV.back ? '' : '<button class="btn" data-act="startsingle" data-id="' + e.id + '">Diese Übung jetzt machen</button>'}</div>`;
+  ${OV.back ? '' : '<button class="btn" data-act="startsingle" data-id="' + e.id + '">Diese Übung jetzt machen</button><button class="btn ghost" data-act="pick" data-id="' + e.id + '">' + (picks.includes(e.id) ? '✓ In deinem Training' : '+ Zu meinem Training') + '</button>'}</div>`;
 }
 function startWorkout(title, list, src){
   OV = {type:'workout', title, src, start: Date.now(), prs: {}, best: Object.fromEntries(list.map(it => [it.ex, C ? bestKg(C, it.ex) : 0])), list: list.map(it => ({ex: it.ex, sets: +it.sets || 3, reps: String(it.reps || '10'), done: Array(+it.sets || 3).fill(false), kg: Array(+it.sets || 3).fill('')})).filter(it => EXMAP[it.ex])};
@@ -601,7 +634,8 @@ function viewWorkout(){
   <h1>${esc(W.title)}</h1>
   <div class="progress"><span style="width:${total ? dn/total*100 : 0}%"></span></div>
   <div class="card stack"><div class="label">Diese Muskeln trainierst du</div>${BODY.pair(lv)}</div>
-  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${exMedia(e, muscleLevels([e.id]))}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div>${(() => { const l = C ? lastFor(C, it.ex) : null; return l ? `<div class="lastline">Letztes Mal: ${l.kg.length ? '<b>' + fmt(Math.max(...l.kg)) + ' kg</b> · ' : ''}${l.done} ${l.done === 1 ? 'Satz' : 'Sätze'} · ${shortDate(l.day)}</div>` : ''; })()}${W.prs[it.ex] ? `<div class="prbadge">Neuer Rekord · ${fmt(W.prs[it.ex].kg)} kg</div>` : ''}<button class="btn ghost" style="min-height:38px;padding:6px 12px;margin-top:6px" data-act="exinfo" data-id="${e.id}">So geht's</button></div></div>
+  ${W.list.map((it, i) => { const e = EXMAP[it.ex], sec = secondsOf(it.reps); return `<div class="card stack"><div class="exhead"><div class="mini">${exMedia(e, muscleLevels([e.id]))}</div><div style="min-width:0"><div class="label">Übung ${i+1}</div><h3>${esc(e.name)}</h3><div class="small muted">${it.sets} × ${esc(it.reps)}${sec ? ' · Timer startet beim Antippen' : ''}</div>${(() => { const l = C ? lastFor(C, it.ex) : null; return l ? `<div class="lastline">Letztes Mal: ${l.kg.length ? '<b>' + fmt(Math.max(...l.kg)) + ' kg</b> · ' : ''}${l.done} ${l.done === 1 ? 'Satz' : 'Sätze'} · ${shortDate(l.day)}</div>` : ''; })()}${W.prs[it.ex] ? `<div class="prbadge">Neuer Rekord · ${fmt(W.prs[it.ex].kg)} kg</div>` : ''}<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn ghost" style="min-height:38px;padding:6px 12px" data-act="exinfo" data-id="${e.id}">So geht's</button><button class="btn ghost" style="min-height:38px;padding:6px 12px" data-act="swap" data-id="${i}" aria-expanded="${W.swap === i}">⇄ Tauschen</button></div></div></div>
+    ${W.swap === i ? (() => { const alts = alternatives(e, W.list.map(x => x.ex)); return `<div class="swapbox"><div class="small muted">Gerät besetzt oder passt nicht? Diese trainieren denselben Muskel:</div>${alts.map(x => `<button class="swapitem" data-act="swapto" data-id="${i}|${x.id}"><span class="sthumb">${exMedia(x, muscleLevels([x.id]))}</span><span style="min-width:0"><b>${esc(x.name)}</b><span class="small muted" style="display:block">${esc(x.geraet)}</span></span></button>`).join('') || '<div class="small muted">Keine passende Alternative gefunden.</div>'}</div>`; })() : ''}
     <div class="stack" style="gap:8px"><div class="setrow small muted"><span>Satz</span><span>${sec ? 'Zeit' : 'Wdh.'}</span><span>${e.ort === 'studio' ? 'kg' : ''}</span><span></span></div>
     ${it.done.map((d, s) => `<div class="setrow"><span class="n">${s+1}</span><span>${esc(it.reps)}</span>${e.ort === 'studio' ? `<input data-kg="${i}-${s}" inputmode="decimal" value="${esc(it.kg[s])}" placeholder="${(() => { const l = C ? lastFor(C, it.ex) : null; return l && l.kg.length ? fmt(l.kg[Math.min(s, l.kg.length - 1)]) : ''; })()}" aria-label="Gewicht Satz ${s+1}">` : '<span></span>'}<button class="setbtn ${d ? 'on' : ''}" data-act="set" data-id="${i}-${s}" aria-label="Satz ${s+1} erledigt" aria-pressed="${d}"></button></div>`).join('')}</div></div>`; }).join('')}
   <button class="btn" data-act="finish">${dn === total ? 'Training abschließen' : 'Training beenden'}</button>
@@ -658,6 +692,7 @@ async function finishWorkout(){
   } else {
     const row = await q(sb.from('extras').insert({client_id: me.id, day: k, title: W.title, minutes: min, details}).select('id').single()); ref = {extra: row.id};
   }
+  if (W.src.picks) { picks = []; savePicks(); }
   C = await loadClient(me.id);
   stopTimer();
   OV = {type:'summary', title: W.title, list: W.list, min: W.src.item ? (findItem(W.src.item)?.min || min) : min, sets, exCount: W.list.filter(x => x.done.some(Boolean)).length, prs: W.prs, details, ref, feel: {}};
@@ -779,7 +814,7 @@ function routineItems(id){ const r = ROUTINES.find(x => x.id === id); return r ?
 
 document.addEventListener('click', async e => {
   const tb = e.target.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; render(); scrollTo(0,0); return; }
-  const mu = e.target.closest('[data-muscle]'); if (mu && !OV) { muscleSel = mu.dataset.muscle === muscleSel ? null : mu.dataset.muscle; render(); return; }
+  const mu = e.target.closest('[data-muscle]'); if (mu && !OV) { muscleSel = mu.dataset.muscle === muscleSel ? null : mu.dataset.muscle; gearSel = 'alle'; render(); return; }
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act, id = b.dataset.id;
   try {
@@ -798,6 +833,8 @@ document.addEventListener('click', async e => {
       if (!it.done[s] && sec) { startTimer('work', sec, () => markSet(i, s)); return; }
       markSet(i, s); return;
     }
+    if (a === 'swap') { OV.swap = OV.swap === +id ? null : +id; renderOverlay(); return; }
+    if (a === 'swapto') { const [i, nid] = id.split('|'), it = OV.list[+i], nx = EXMAP[nid]; delete OV.prs[it.ex]; it.ex = nid; it.reps = String(nx.reps); it.done = Array(it.sets).fill(false); it.kg = Array(it.sets).fill(''); OV.best[nid] = C ? bestKg(C, nid) : 0; OV.swap = null; renderOverlay(); toast('Getauscht: ' + nx.name); return; }
     if (a === 'timerplus') { if (timer) { timer.end += 15000; tickTimer(); } return; }
     if (a === 'timerskip') { const cb = timer && timer.mode === 'work' ? timer.onDone : null; stopTimer(); if (cb) cb(); return; }
     if (a === 'finish') { await finishWorkout(); return; }
@@ -822,7 +859,11 @@ document.addEventListener('click', async e => {
     if (a === 'wksave') { await saveWeekCheck(); return; }
     // Übungen-Seite
     if (a === 'exfilter') { exFilter = id; }
-    if (a === 'musclereset') { muscleSel = null; }
+    if (a === 'musclereset') { muscleSel = null; gearSel = 'alle'; }
+    if (a === 'gearfilter') { gearSel = id; }
+    if (a === 'pick') { picks = picks.includes(id) ? picks.filter(x => x !== id) : [...picks, id]; savePicks(); if (OV && OV.type === 'ex') { renderOverlay(); toast(picks.includes(id) ? 'Zu deinem Training hinzugefügt' : 'Aus deinem Training entfernt'); } render(); return; }
+    if (a === 'pickclear') { picks = []; savePicks(); render(); return; }
+    if (a === 'pickstart') { startWorkout('Mein Training', picks.map(x => ({ex: x, sets: EXMAP[x].sets, reps: EXMAP[x].reps})), {picks: true}); return; }
     // Anmeldung und Kunde
     if (a === 'mode') { authMode = b.dataset.mode; authMsg = ''; }
     if (a === 'menu') { if (preview) { preview = false; C = null; render(); return; } if (me.role === 'coach') { scrollTo(0, document.body.scrollHeight); return; } tab = 'erfolge'; render(); scrollTo(0, document.body.scrollHeight); toast('Abmelden findest du unten'); return; }
