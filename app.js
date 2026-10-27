@@ -619,12 +619,46 @@ function exDetail(e){
   const lv = muscleLevels([e.id]);
   return `<div class="wrap stack"><div class="top"><button class="btn ghost" data-act="closeov">← Zurück</button><span class="chip ${e.kat === 'ems' ? 'ems' : 'kraft'}">${esc(KAT[e.kat])}</span></div>
   <h1>${esc(e.name)}</h1>
-  <div class="animbox">${exMedia(e, lv)}</div>
+  ${C && e.kat !== 'ems' ? `<div class="seg" style="grid-template-columns:repeat(3,1fr)">${[['info','Anleitung'],['verlauf','Verlauf'],['fortschritt','Fortschritt']].map(([k, l]) => `<button data-act="extab" data-id="${k}" aria-pressed="${(OV.tab || 'info') === k}">${l}</button>`).join('')}</div>` : ''}
+  ${C && OV.tab === 'verlauf' ? exVerlauf(e) : C && OV.tab === 'fortschritt' ? exFortschritt(e) : `<div class="animbox">${exMedia(e, lv)}</div>
   <div class="card stack"><div class="label">Diese Muskeln arbeiten</div>${BODY.pair(lv)}${muscleChips(lv)}</div>
   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">${esc(ORT[e.ort])}</span><span class="chip">${esc(e.geraet)}</span><span class="chip">${e.sets} × ${esc(e.reps)}</span></div>
   <div class="card stack"><div class="label">So geht's</div><ol class="steps">${e.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
   <div class="card stack"><div class="label" style="color:var(--tint)">Tipp</div><div>${esc(e.tip)}</div><div class="label" style="color:var(--warm)">Typischer Fehler</div><div>${esc(e.fehler)}</div></div>
-  ${OV.back ? '' : '<button class="btn" data-act="startsingle" data-id="' + e.id + '">Diese Übung jetzt machen</button><button class="btn ghost" data-act="pick" data-id="' + e.id + '">' + (picks.includes(e.id) ? '✓ In deinem Training' : '+ Zu meinem Training') + '</button>'}</div>`;
+  ${OV.back ? '' : '<button class="btn" data-act="startsingle" data-id="' + e.id + '">Diese Übung jetzt machen</button><button class="btn ghost" data-act="pick" data-id="' + e.id + '">' + (picks.includes(e.id) ? '✓ In deinem Training' : '+ Zu meinem Training') + '</button>'}`}</div>`;
+}
+// Verlauf und Fortschritt einer Übung (aus den gespeicherten Trainings)
+const repsNum = r => { const m = /^(\d+)/.exec(String(r).trim()); return m && !/^\d+\s*(s|min)\b/.test(String(r).trim()) ? +m[1] : null; };
+const est1rm = (kg, reps) => reps && reps <= 15 ? kg * (1 + reps / 30) : null;   // Epley-Formel, nur grobe Schätzung
+function exVerlauf(e){
+  const h = exHistory(C, e.id).slice().reverse();
+  if (!h.length) return `<div class="card stack" style="text-align:center;padding:28px 18px"><div style="font-size:2rem">📒</div><b>Noch kein Eintrag</b><div class="small muted">Nach deinem ersten Training mit dieser Übung siehst du hier jede Einheit mit Sätzen${e.ort === 'studio' ? ' und Gewicht' : ''}.</div></div>${OV.back ? '' : '<button class="btn" data-act="startsingle" data-id="' + e.id + '">Jetzt zum ersten Mal machen</button>'}`;
+  let best = 0; const prDays = new Set(); exHistory(C, e.id).forEach(x => { const m = x.kg.length ? Math.max(...x.kg) : 0; if (m > best) { if (best > 0) prDays.add(x.day + m); best = m; } });
+  return `<div class="exlist">${h.map(x => { const m = x.kg.length ? Math.max(...x.kg) : 0; return `<div class="histrow"><div class="hdate"><b>${new Date(x.day + 'T12:00').toLocaleDateString('de-DE', {day: 'numeric'})}</b><span>${new Date(x.day + 'T12:00').toLocaleDateString('de-DE', {month: 'short'})}</span></div><div style="min-width:0;flex:1"><div><b>${x.done} ${x.done === 1 ? 'Satz' : 'Sätze'}</b> × ${esc(x.reps)}${prDays.has(x.day + m) ? ' <span class="prbadge">Rekord</span>' : ''}</div>${x.kg.length ? `<div class="small muted">${x.kg.map(fmt).join(' · ')} kg</div>` : ''}</div>${m ? `<div class="hkg">${fmt(m)}<span> kg</span></div>` : ''}</div>`; }).join('')}</div>`;
+}
+function exFortschritt(e){
+  const h = exHistory(C, e.id);
+  if (!h.length) return `<div class="card stack" style="text-align:center;padding:28px 18px"><div style="font-size:2rem">📈</div><b>Hier wächst deine Kurve</b><div class="small muted">Sobald du die Übung ein paar Mal gemacht hast, siehst du hier, wie du stärker wirst.</div></div>`;
+  const withKg = h.filter(x => x.kg.length), best = withKg.length ? Math.max(...withKg.flatMap(x => x.kg)) : 0;
+  const rm = Math.max(0, ...withKg.map(x => est1rm(Math.max(...x.kg), repsNum(x.reps)) || 0));
+  const first = withKg.length ? Math.max(...withKg[0].kg) : 0, plus = best - first;
+  const days = new Set(h.map(x => x.day)).size, sets = h.reduce((a, x) => a + x.done, 0);
+  const pts = withKg.length >= 2 ? withKg.map(x => ({date: x.day, value: Math.max(...x.kg)})) : h.length >= 2 ? h.map(x => ({date: x.day, value: x.done})) : null;
+  return `<div class="stats">${best ? `<div class="stat"><b>${fmt(best)}</b><span class="small muted">kg Bestwert</span></div>` : ''}<div class="stat"><b>${days}</b><span class="small muted">${days === 1 ? 'Training' : 'Trainings'}</span></div><div class="stat"><b>${sets}</b><span class="small muted">Sätze gesamt</span></div></div>
+  ${plus > 0 ? `<div class="card hi row" style="gap:12px"><div style="font-size:1.6rem">💪</div><div><b>+${fmt(plus)} kg seit dem ersten Mal</b><div class="small muted">Von ${fmt(first)} auf ${fmt(best)} kg – stark!</div></div></div>` : ''}
+  <div class="card stack"><div class="label">${pts && withKg.length >= 2 ? 'Bestes Gewicht pro Training' : 'Sätze pro Training'}</div>${pts ? lineChart(pts, withKg.length >= 2 ? 'kg' : 'Sätze') : '<p class="muted small" style="margin:0">Die Kurve erscheint ab dem zweiten Training.</p>'}</div>
+  ${rm ? `<div class="card stack" style="gap:6px"><div class="label">Geschätzte Maximalkraft</div><div><b style="font-size:1.6rem">${fmt(Math.round(rm * 2) / 2)} kg</b> <span class="small muted">für 1 Wiederholung</span></div><div class="small muted">Nur eine Schätzung aus deinem besten Satz – bitte nicht ausprobieren, sondern sauber im Wiederholungsbereich bleiben.</div></div>` : ''}`;
+}
+function lineChart(h, unit){
+  const W = 320, H = 140, p = {l:34, r:12, t:16, b:24};
+  const vals = h.map(x => x.value), mn = Math.min(...vals), mx = Math.max(...vals), pad = (mx - mn) * .15 || 1, lo = Math.max(0, mn - pad), hi = mx + pad;
+  const X = i => p.l + (W - p.l - p.r) * (i / (h.length - 1)), Y = v => p.t + (H - p.t - p.b) * (1 - (v - lo) / (hi - lo));
+  const pts = h.map((x, i) => `${X(i)},${Y(x.value)}`).join(' '), step = Math.ceil(h.length / 6);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Verlauf in ${esc(unit)}">
+  <polygon points="${p.l},${H - p.b} ${pts} ${X(h.length - 1)},${H - p.b}" fill="var(--tint-soft)"/>
+  <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>
+  ${h.map((x, i) => `<circle cx="${X(i)}" cy="${Y(x.value)}" r="${i === h.length - 1 ? 5.5 : 3.5}" fill="var(--accent)"/>${i % step === 0 || i === h.length - 1 ? `<text x="${X(i)}" y="${H - 6}" text-anchor="middle">${shortDate(x.date)}</text>` : ''}`).join('')}
+  <text x="4" y="${Y(h[0].value) + 4}">${fmt(h[0].value)}</text><text x="${X(h.length - 1)}" y="${Y(h[h.length - 1].value) - 10}" text-anchor="middle" style="font-weight:700">${fmt(h[h.length - 1].value)}</text></svg>`;
 }
 function startWorkout(title, list, src){
   OV = {type:'workout', title, src, start: Date.now(), prs: {}, best: Object.fromEntries(list.map(it => [it.ex, C ? bestKg(C, it.ex) : 0])), list: list.map(it => ({ex: it.ex, sets: +it.sets || 3, reps: String(it.reps || '10'), done: Array(+it.sets || 3).fill(false), kg: Array(+it.sets || 3).fill('')})).filter(it => EXMAP[it.ex])};
@@ -826,6 +860,7 @@ document.addEventListener('click', async e => {
     if (preview && ['toggle','finish','quickdone','delextra','feelsave','dc','dcwater','wksave','eat','eatdel','eatrecipe'].includes(a)) { toast('Vorschau: hier wird nichts gespeichert'); return; }
     // Vollbild
     if (a === 'openex') { OV = {type:'ex', id}; openOverlay(); return; }
+    if (a === 'extab') { OV.tab = id; renderOverlay(); return; }
     if (a === 'exinfo') { OV.back = {...OV}; const back = OV.back; OV = {type:'ex', id, back}; renderOverlay(); document.getElementById('ov').scrollTop = 0; return; }
     if (a === 'closeov') { if (OV && OV.back) { OV = OV.back; delete OV.back; renderOverlay(); return; } closeOverlay(); render(); return; }
     if (a === 'startroutine') { const r = ROUTINES.find(x => x.id === id); startWorkout(r.name, routineItems(id), {routine: id}); return; }

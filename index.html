@@ -261,6 +261,13 @@ svg.body .ring{fill:none;stroke:var(--accent);stroke-width:2.2}
 .swapitem{display:flex;gap:12px;align-items:center;text-align:left;border:0;background:var(--card);border-radius:14px;padding:6px 12px 6px 6px;color:var(--fg);font:inherit;cursor:pointer}
 .swapitem .sthumb{flex:none;width:56px;height:56px;border-radius:12px;background:var(--card2);overflow:hidden;display:grid;place-items:center}
 .swapitem .sthumb svg{max-height:54px}
+.histrow{display:flex;gap:14px;align-items:center;padding:12px 16px;position:relative}
+.histrow + .histrow::before{content:"";position:absolute;top:0;left:70px;right:0;border-top:.5px solid var(--line)}
+.hdate{flex:none;width:40px;text-align:center;line-height:1.1}
+.hdate b{display:block;font-size:1.25rem}
+.hdate span{font-size:.75rem;color:var(--muted);text-transform:uppercase}
+.hkg{flex:none;font-weight:700;font-size:1.15rem}
+.hkg span{font-size:.75rem;font-weight:500;color:var(--muted)}
 .routine{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;min-height:300px;padding-top:170px !important;border-radius:24px;padding:16px;overflow:hidden;color:#fff;background:linear-gradient(160deg,#2B2D31,#141516)}
 .routine .mini{position:absolute;left:0;right:0;top:0;height:170px;width:auto;background:none;border-radius:0;padding:10px 10px 0}
 .routine .mini svg{height:100%;max-height:none;width:100%}
@@ -383,10 +390,10 @@ details.dp[open] .chev{transform:rotate(225deg) translateY(-2px)}
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=38"></script>
-<script src="anim.js?v=38"></script>
-<script src="exercises.js?v=38"></script>
-<script src="nutrition.js?v=38"></script>
-<script src="app.js?v=38"></script>
+<script src="body.js?v=39"></script>
+<script src="anim.js?v=39"></script>
+<script src="exercises.js?v=39"></script>
+<script src="nutrition.js?v=39"></script>
+<script src="app.js?v=39"></script>
 </body>
 </html>
