@@ -20,8 +20,8 @@ const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); retur
 const gender = () => (C && C.p && C.p.gender) || 'm';
 // Übung vormachen: Foto-Überblendung, wenn vorhanden (passende Figur, sonst die andere), sonst animiertes Männchen
 function exMedia(e, lv){
-  // Reihenfolge: passende echte Fotos (m/w) → 3D-Avatar (a) → andere Figur
-  const have = PHOTOS[e.id] || [], g = have.includes(gender()) ? gender() : have.includes('a') ? 'a' : have[0];
+  // Reihenfolge: 3D-Avatar (a) → passende Fotos (m/w) → andere Figur
+  const have = PHOTOS[e.id] || [], g = have.includes('a') ? 'a' : have.includes(gender()) ? gender() : have[0];   // 3D-Avatar zuerst (einheitlicher Look)
   if (!g) return ANIM.svg(e.anim, lv, gender());
   const src = n => `img/ex/${e.id}_${g}_${n}.jpg?v=1`;
   return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><img src="${src(1)}" alt="" decoding="async"><img class="b" src="${src(2)}" alt="" decoding="async"></div>`;
