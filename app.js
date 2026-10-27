@@ -566,7 +566,7 @@ function viewUebungen(c){
   ${gears.length > 1 ? `<div class="filters">${[['alle','Alle Geräte'], ...gears].map(([k,l]) => `<button class="fchip" data-act="gearfilter" data-id="${k}" aria-pressed="${gearSel===k}">${l}</button>`).join('')}</div>` : ''}
   ${muscleSel ? '' : '<p class="small muted" style="margin:0 4px">Mit + stellst du dir dein eigenes Training zusammen.</p>'}
   ${exBlock}
-  <p class="credit">Bei Schmerzen abbrechen und mit Jonathan sprechen. Muskelmodell: Wikimedia Commons „Muscular system“ und wger.de, Lizenz CC BY-SA.</p>
+  <p class="credit">Bei Schmerzen abbrechen und mit Jonathan sprechen. 3D-Muskelmodell: Z-Anatomy und BodyParts3D (DBCLS), Lizenz CC BY-SA 4.0.</p>
   </div>`;
 }
 function chart(c){
