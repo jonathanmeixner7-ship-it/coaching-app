@@ -19,8 +19,9 @@ const today = () => { const t = new Date(); t.setHours(12,0,0,0); return t; };
 const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
 const gender = () => (C && C.p && C.p.gender) || 'm';
 // Übung vormachen: Foto-Überblendung, wenn vorhanden (passende Figur, sonst die andere), sonst animiertes Männchen
-function exMedia(e, lv){
-  // Reihenfolge: 3D-Avatar (a) → passende Fotos (m/w) → andere Figur
+function exMedia(e, lv, still){
+  // Reihenfolge: 3D-Avatar (a) → passende Fotos (m/w) → andere Figur; still = nur Standbild (lange Listen)
+  if (VIDEOS.includes(e.id) && still) return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><img src="img/ex/${e.id}.jpg?v=1" alt="" loading="lazy" decoding="async"></div>`;
   if (VIDEOS.includes(e.id)) return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><video src="img/ex/${e.id}.mp4?v=1" poster="img/ex/${e.id}.jpg?v=1" autoplay muted loop playsinline preload="metadata"></video></div>`;   // echtes Bewegungsvideo
   const have = PHOTOS[e.id] || [], g = have.includes('a') ? 'a' : have.includes(gender()) ? gender() : have[0];   // 3D-Avatar zuerst (einheitlicher Look)
   if (!g) return ANIM.svg(e.anim, lv, gender());
@@ -549,7 +550,7 @@ function viewUebungen(c){
   const lv = muscleSel ? {[muscleSel]: 1} : {};
   const gears = muscleSel ? GEAR.filter(([k]) => list.some(e => gearOf(e).includes(k))) : [];
   const shown = muscleSel && gearSel !== 'alle' ? list.filter(e => gearOf(e).includes(gearSel)) : list;
-  const row = e => `<div class="exrow"><button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]))}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)}${muscleSel ? '' : ' · ' + esc(KAT[e.kat])}</span></span></button><button class="pickbtn${picks.includes(e.id) ? ' on' : ''}" data-act="pick" data-id="${e.id}" aria-pressed="${picks.includes(e.id)}" aria-label="${esc(e.name)} ${picks.includes(e.id) ? 'aus deinem Training nehmen' : 'zu deinem Training hinzufügen'}">${picks.includes(e.id) ? '✓' : '+'}</button></div>`;
+  const row = e => `<div class="exrow"><button class="exitem" data-act="openex" data-id="${e.id}"><span class="thumb">${exMedia(e, muscleLevels([e.id]), true)}</span><span class="t-body"><span class="t-title">${esc(e.name)}</span><span class="small muted">${esc(ORT[e.ort])} · ${esc(e.geraet)}${muscleSel ? '' : ' · ' + esc(KAT[e.kat])}</span></span></button><button class="pickbtn${picks.includes(e.id) ? ' on' : ''}" data-act="pick" data-id="${e.id}" aria-pressed="${picks.includes(e.id)}" aria-label="${esc(e.name)} ${picks.includes(e.id) ? 'aus deinem Training nehmen' : 'zu deinem Training hinzufügen'}">${picks.includes(e.id) ? '✓' : '+'}</button></div>`;
   const main = shown.filter(e => !muscleSel || e.m.includes(muscleSel)), help = muscleSel ? shown.filter(e => !e.m.includes(muscleSel)) : [];
   const exBlock = muscleSel
     ? `${main.length ? `<div class="label" style="margin:4px 4px 0">Trainiert ${esc(BODY.NAMES[muscleSel])} hauptsächlich · ${main.length}</div><div class="exlist">${main.map(row).join('')}</div>` : ''}
