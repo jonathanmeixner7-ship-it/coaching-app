@@ -21,6 +21,7 @@ const gender = () => (C && C.p && C.p.gender) || 'm';
 // Übung vormachen: Foto-Überblendung, wenn vorhanden (passende Figur, sonst die andere), sonst animiertes Männchen
 function exMedia(e, lv){
   // Reihenfolge: 3D-Avatar (a) → passende Fotos (m/w) → andere Figur
+  if (VIDEOS.includes(e.id)) return `<div class="photoanim" role="img" aria-label="${esc(e.name)} vorgemacht"><video src="img/ex/${e.id}.mp4?v=1" poster="img/ex/${e.id}.jpg?v=1" autoplay muted loop playsinline preload="metadata"></video></div>`;   // echtes Bewegungsvideo
   const have = PHOTOS[e.id] || [], g = have.includes('a') ? 'a' : have.includes(gender()) ? gender() : have[0];   // 3D-Avatar zuerst (einheitlicher Look)
   if (!g) return ANIM.svg(e.anim, lv, gender());
   const src = n => `img/ex/${e.id}_${g}_${n}.jpg?v=1`;
@@ -38,11 +39,12 @@ let exFilter = 'alle', muscleSel = null, preview = false, gearSel = 'alle';
 let picks = (() => { try { return JSON.parse(localStorage.getItem('jc_picks') || '[]').filter(id => EXMAP[id]); } catch (_) { return []; } })();
 const savePicks = () => { try { localStorage.setItem('jc_picks', JSON.stringify(picks)); } catch (_) {} };
 // Geräte-Gruppen für den Filter bei einem Muskel
-const GEAR = [['langhantel','Langhantel'],['kurzhantel','Kurzhantel'],['kabel','Kabelzug'],['maschine','Maschine'],['band','Band'],['ohne','Ohne Geräte']];
+const GEAR = [['langhantel','Langhantel'],['kurzhantel','Kurzhantel'],['kettlebell','Kettlebell'],['kabel','Kabelzug'],['maschine','Maschine'],['band','Band'],['ohne','Ohne Geräte']];
 function gearOf(e){
   const g = e.geraet.toLowerCase(), out = [];
   if (/langhantel|sz-stange|landmine/.test(g)) out.push('langhantel');
   if (/kurzhantel/.test(g)) out.push('kurzhantel');
+  if (/kettlebell/.test(g)) out.push('kettlebell');
   if (/kabel/.test(g)) out.push('kabel');
   if (/maschine|multipresse|presse|butterfly|scottbank|dip-station|hyperextension|t-bar/.test(g)) out.push('maschine');
   if (/band/.test(g)) out.push('band');
@@ -558,6 +560,8 @@ function viewUebungen(c){
   ${picks.length ? `<div class="card hi stack" style="gap:10px"><div class="row between"><div><div class="label" style="color:var(--tint)">Dein Training</div><b>${picks.length} ${picks.length === 1 ? 'Übung' : 'Übungen'} ausgewählt</b></div><button class="btn ghost" style="min-height:38px;padding:6px 12px" data-act="pickclear">Leeren</button></div><div class="small muted">${picks.map(id => esc(EXMAP[id].name)).join(' · ')}</div><button class="btn" data-act="pickstart">Training starten</button></div>` : ''}
   <div class="section"><h2>Für zuhause</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'zuhause' && !r.nurCoach).length} Programme</span></div>
   <div class="routines">${ROUTINES.filter(r => r.ort === 'zuhause' && !r.nurCoach).map(routineCard).join('')}</div>
+  <div class="section"><h2>Mit Kettlebell</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'kettlebell').length} Programm</span></div>
+  <div class="routines">${ROUTINES.filter(r => r.ort === 'kettlebell').map(routineCard).join('')}</div>
   <div class="section"><h2>Im Studio</h2><span class="small muted">${ROUTINES.filter(r => r.ort === 'studio' && !r.nurCoach).length} Programme</span></div>
   <div class="routines">${ROUTINES.filter(r => r.ort === 'studio' && !r.nurCoach).map(routineCard).join('')}</div>
   <div class="section"><h2>Alle Übungen</h2><span class="small muted">${list.length}</span></div>

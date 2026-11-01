@@ -209,10 +209,25 @@ EX.push(
   G('beinbeuger_stehend','superman','Beinbeuger stehend einbeinig',['oberschenkel_hinten'],['waden'],'Maschine oder Kabel',3,'12 pro Seite',['Polster an der Ferse, festhalten.','Ferse zum Po ziehen.','Langsam ablassen.'],'Hüfte bleibt ruhig.','Becken kippt.')
 );
 
+// Kettlebell (Wissen + Studien: Trainingspläne/Kettlebell/Kettlebell_Wissen_und_Workout.pdf). Videos: avatar-video/ → img/ex/<id>.mp4
+const KB = (id, anim, name, m, s, sets, reps, steps, tip, fehler) => ({id, anim, name, m, s, ort:'beides', kat:'kraft', geraet:'Kettlebell', sets, reps, steps, tip, fehler, kb:true});
+EX.push(
+  KB('kb_deadlift','rdl','Kettlebell-Kreuzheben',['po','oberschenkel_hinten'],['unterer_ruecken','unterarme'],3,'10',['Kugel zwischen die Füße stellen, Füße etwas breiter als die Hüfte.','Po nach hinten schieben, Rücken lang, Kugel am Griff fassen.','Über die ganze Fußsohle aufstehen, oben Po fest anspannen.'],'Das ist der „Hinge“ – die Basis für den Swing. Schienbein bleibt fast senkrecht.','Rücken rundet sich oder die Kugel steht zu weit vorne.'),
+  KB('kb_swing','rdl','Kettlebell-Swing',['po','oberschenkel_hinten'],['unterer_ruecken','bauch','schultern'],10,'10–15 (jede Minute)',['Kugel ca. 30 cm vor die Füße, Hinge, Kugel kraftvoll nach hinten zwischen die Beine „passen“.','Hüfte explosiv nach vorne: Po zusammenkneifen, Knie durchstrecken, Bauch fest – stehen wie ein Brett.','Kugel fliegt bis Brusthöhe, die Arme sind nur Seile. Erst wenn sie fällt, wieder Hüfte nach hinten.'],'Kraft kommt aus der Hüfte, nicht aus den Armen. Oben kurz ausatmen („Tsss“).','Kniebeuge statt Hüftbeuge oder die Kugel mit den Schultern hochheben.'),
+  KB('kb_goblet','goblet','Kettlebell Goblet Squat',['oberschenkel_vorne','po'],['bauch','ruecken_oben'],3,'8–12',['Kugel an den Hörnern vor der Brust halten, Füße schulterbreit.','Tief sitzen, Brust bleibt hoch, Ellbogen zwischen die Knie.','2 Sekunden runter, kraftvoll aus den Fersen hoch.'],'Die Kugel vor der Brust zieht dich automatisch aufrecht – die einfachste Kniebeuge überhaupt.','Fersen heben ab oder Knie fallen nach innen.'),
+  KB('kb_rudern','dbRow','Kettlebell-Rudern einarmig',['latissimus'],['ruecken_oben','bizeps'],3,'8–12 pro Seite',['Vorbeugen, freie Hand auf dem Knie oder einer Bank, Rücken lang.','Ellbogen eng am Körper zur Hüfte ziehen, oben kurz halten.','Langsam ablassen. Schwächere Seite zuerst.'],'Stell dir vor, du startest einen Rasenmäher – aber langsam und kontrolliert.','Oberkörper dreht sich mit oder der Rücken wird rund.'),
+  KB('kb_clean','curlDb','Kettlebell-Clean (Umsetzen)',['po','oberschenkel_hinten'],['schultern','unterarme','bauch'],3,'5 pro Seite',['Kugel wie beim einarmigen Swing nach hinten schwingen.','Hüfte nach vorne, Ellbogen eng am Körper – die Kugel fährt nah am Körper hoch.','Hand „schlüpft“ um den Griff, Kugel landet sanft auf dem Unterarm in der Rack-Position.'],'Die Kugel soll den Unterarm nicht schlagen: Griff locker, Ellbogen bleibt am Körper.','Kugel weit nach vorne schwingen wie beim Swing.'),
+  KB('kb_press','press','Kettlebell-Press einarmig',['schultern'],['trizeps','bauch','seitlich'],3,'6–10 pro Seite',['Kugel per Clean in die Rack-Position (Brust, Unterarm senkrecht).','Po und Bauch fest, freie Faust ballen.','Gerade nach oben drücken, bis der Bizeps neben dem Ohr ist, langsam zurück.'],'Einsteiger: halb kniend drücken – das verhindert das Hohlkreuz.','Oberkörper weicht zur Seite aus oder Hohlkreuz.'),
+  KB('kb_getup','sidePlank','Turkish Get-Up',['schultern','bauch'],['po','seitlich'],2,'1–2 pro Seite',['Auf dem Rücken liegen, Kugel mit gestrecktem Arm senkrecht über der Schulter.','Langsam: Ellbogen → Hand → Brücke → Knie → Stand, Blick immer zur Kugel.','Genauso langsam zurück in die Rückenlage.'],'Erst ohne Gewicht lernen (Schuh auf der Faust balancieren).','Arm knickt ein oder du hetzt durch die Positionen.'),
+  KB('kb_carry','walk','Suitcase Carry (Koffer tragen)',['seitlich','bauch'],['unterarme','schultern','po'],2,'30–40 m pro Seite',['Schwere Kugel in eine Hand nehmen.','Aufrecht gehen, Schultern bleiben gerade.','Nicht zur Kugel-Seite kippen, ruhig weiteratmen.'],'Wie ein Seitstütz im Gehen – schützt den unteren Rücken und stärkt den Griff.','Oberkörper neigt sich zur Kugel oder die Schulter wird hochgezogen.'),
+);
+
 const EXMAP = Object.fromEntries(EX.map(e => [e.id, e]));
 // Programme mit eigenem Titelbild (3D-Avatar, KI-erzeugt) → img/prog/<id>.jpg
 const COVERS = ['ruecken', 'rumpf', 'unterer_ruecken', 'mobility', 'gk_mobility', 'gk_home', 'beine', 'haltung', 'oberkoerper', 'kreislauf', 'balance', 'studio_gk', 'studio_ok', 'studio_beine'];
 // Übungen mit echten Fotos (Start- und Endposition), pro Figur: m = Mann, w = Frau → img/ex/<id>_<m|w>_1.jpg und _2.jpg
+// Übungen mit Bewegungsvideo (3D-Avatar, Blender) → img/ex/<id>.mp4 + .jpg
+const VIDEOS = ['kb_swing', 'kb_deadlift', 'kb_goblet', 'kb_rudern', 'kb_clean', 'kb_press', 'kb_carry'];
 const PHOTOS = {kniebeuge: ['m', 'a'], kniebeuge_stuhl: ['m', 'a'], ausfallschritt: ['m', 'a'], bruecke: ['a'], liegestuetz_knie: ['a'], wandliegestuetz: ['a'], band_bizeps: ['a'], band_pullapart: ['a'], band_rudern: ['a'], band_seitgehen: ['a'], brustoeffner: ['a'], deadbug: ['a'], einbeinstand: ['a'], hueftbeuger: ['a'], katzekuh: ['a'], offenesbuch: ['a'], plank: ['a'], seitstuetz: ['a'], stepup: ['a'], superman: ['a'], treppen: ['a'], vierfuessler: ['a'], wadenheben: ['a'], wandsitzen: ['a'], beinpresse: ['a'], goblet: ['a'], kh_rudern: ['a'], latzug: ['a'], rdl: ['a'], bankdruecken: ['a'], brustpresse: ['a'], kh_bizeps: ['a'], kh_schulter: ['a'], trizeps_kabel: ['a'], koffer_tragen: ['a'], nordic: ['a'], radfahren: ['a'], schraegbank_multi: ['a'], spaziergang: ['a']};
 
 // Vorlagen für freie Tage (vor allem für tenless-Kunden zwischen den EMS-Terminen)
@@ -235,13 +250,15 @@ const ROUTINES = [
   {id:'split_c', ort:'studio', nurCoach:true, name:'Split Tag C · Schultern + Arme', min:60, info:'5-Tage-Split, Mittwoch', items:[['kh_schulter',3,'12–15'],['seitheben',3,'12–15'],['reverse_butterfly',2,'12–15'],['sz_curl',3,'12–15'],['trizeps_ueberkopf',3,'12–15'],['schraegbank_curl',2,'12–15'],['crunch_maschine',2,'12–15']]},
   {id:'split_d', ort:'studio', nurCoach:true, name:'Split Tag D · Oberkörper kompakt', min:55, info:'5-Tage-Split, Freitag', items:[['schraege_brustpresse',3,'12–15'],['latzug_eng',3,'12–15'],['kabelrudern_einarmig',2,'12–15 pro Seite'],['schulterpresse_maschine',2,'12–15'],['seitheben',3,'12–15'],['bizeps_kabel',2,'12–15'],['trizeps_kabel',2,'12–15']]},
   {id:'split_e', ort:'studio', nurCoach:true, name:'Split Tag E · Unterkörper kompakt', min:55, info:'5-Tage-Split, Samstag', items:[['beinpresse',3,'12–15'],['rdl',3,'12–15'],['bulgarian',2,'10–12 pro Seite'],['beinbeuger_liegend',3,'12–15'],['wadenheben_sitzend',3,'12–15'],['seitstuetz',2,'30–45 s pro Seite']]},
+  // Kettlebell (eigener Bereich)
+  {id:'kb_gk', ort:'kettlebell', name:'Kettlebell Ganzkörper', min:40, info:'Kraft, Power und Rumpf mit einer Kugel', items:[['kb_deadlift',1,'8 (Aufwärmen)'],['kb_goblet',3,'8–12'],['kb_rudern',3,'8–12 pro Seite'],['kb_press',3,'6–10 pro Seite'],['kb_swing',10,'10–15 jede Minute'],['kb_getup',2,'1–2 pro Seite'],['kb_carry',2,'30–40 m pro Seite']]},
   // Studio
   {id:'studio_gk', ort:'studio', name:'Studio Ganzkörper', min:40, info:'Der Klassiker: einmal alles', items:[['goblet',3,'10'],['bankdruecken',3,'8–10'],['latzug',3,'10–12'],['rdl',3,'10'],['kh_schulter',2,'10'],['plank',2,'40 s']]},
   {id:'studio_ok', ort:'studio', name:'Studio Oberkörper', min:35, info:'Brust, Rücken, Schultern, Arme', items:[['bankdruecken',3,'8–10'],['kh_rudern',3,'10 pro Seite'],['kh_schulter',3,'10'],['latzug',3,'10–12'],['trizeps_kabel',2,'12'],['kh_bizeps',2,'12']]},
   {id:'studio_beine', ort:'studio', name:'Studio Beine & Po', min:35, info:'Kräftige Beine, starker Po', items:[['beinpresse',3,'10–12'],['rdl',3,'10'],['goblet',3,'10'],['ausfallschritt',2,'8 pro Seite'],['wadenheben',3,'15']]}
 ];
 const KAT = {kraft:'Kraft', mobility:'Beweglichkeit', ausdauer:'Ausdauer', ems:'EMS'};
-const ORT = {zuhause:'Zuhause', studio:'Studio', beides:'Zuhause & Studio', draussen:'Draußen'};
+const ORT = {zuhause:'Zuhause', studio:'Studio', beides:'Zuhause & Studio', draussen:'Draußen', kettlebell:'Kettlebell'};
 
 // Muskel-Stufen aus einer Übungsliste [{ex, …}] berechnen
 function muscleLevels(list){
