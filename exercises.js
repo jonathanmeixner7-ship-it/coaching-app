@@ -228,7 +228,8 @@ const COVERS = ['ruecken', 'rumpf', 'unterer_ruecken', 'mobility', 'gk_mobility'
 // Übungen mit echten Fotos (Start- und Endposition), pro Figur: m = Mann, w = Frau → img/ex/<id>_<m|w>_1.jpg und _2.jpg
 // Übungen mit Bewegungsvideo (3D-Avatar, Blender) → img/ex/<id>.mp4 + .jpg
 const VIDEOS = ['kb_swing', 'kb_deadlift', 'kb_goblet', 'kb_rudern', 'kb_clean', 'kb_press', 'kb_carry',
-  'kh_bizeps', 'goblet', 'hammer_curl', 'kh_schulter', 'rdl', 'kh_kreuzheben', 'kniebeuge', 'kniebeuge_lh', 'kreuzheben_lh', 'good_morning'];   // Blender-Bewegungsvideos (avatar-video)
+  'kh_bizeps', 'goblet', 'hammer_curl', 'kh_schulter', 'rdl', 'kh_kreuzheben', 'kniebeuge', 'kniebeuge_lh', 'kreuzheben_lh', 'good_morning',
+  'spaziergang', 'koffer_tragen', 'frontheben', 'seitheben', 'arnold_press', 'ausfallschritt', 'ausfallschritt_kh', 'wadenheben', 'waden_einbeinig', 'einbeinstand'];   // Blender-Bewegungsvideos (avatar-video)
 const PHOTOS = {kniebeuge: ['m', 'a'], kniebeuge_stuhl: ['m', 'a'], ausfallschritt: ['m', 'a'], bruecke: ['a'], liegestuetz_knie: ['a'], wandliegestuetz: ['a'], band_bizeps: ['a'], band_pullapart: ['a'], band_rudern: ['a'], band_seitgehen: ['a'], brustoeffner: ['a'], deadbug: ['a'], einbeinstand: ['a'], hueftbeuger: ['a'], katzekuh: ['a'], offenesbuch: ['a'], plank: ['a'], seitstuetz: ['a'], stepup: ['a'], superman: ['a'], treppen: ['a'], vierfuessler: ['a'], wadenheben: ['a'], wandsitzen: ['a'], beinpresse: ['a'], goblet: ['a'], kh_rudern: ['a'], latzug: ['a'], rdl: ['a'], bankdruecken: ['a'], brustpresse: ['a'], kh_bizeps: ['a'], kh_schulter: ['a'], trizeps_kabel: ['a'], koffer_tragen: ['a'], nordic: ['a'], radfahren: ['a'], schraegbank_multi: ['a'], spaziergang: ['a']};
 
 // Vorlagen für freie Tage (vor allem für tenless-Kunden zwischen den EMS-Terminen)
