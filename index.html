@@ -101,6 +101,18 @@ details summary{color:var(--tint);font-weight:500;list-style:none} details summa
 .joker{margin-left:auto;font-size:.75rem;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--tint-soft);color:var(--tint)}
 .joker.used{background:var(--fill);color:var(--muted)}
 .lastline{font-size:.8125rem;color:var(--muted);margin-top:2px}
+.diary{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
+.diary table{border-collapse:collapse;width:100%;font-size:.8125rem;font-variant-numeric:tabular-nums}
+.diary th,.diary td{padding:7px 5px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+.diary thead th{color:var(--muted);font-weight:600}
+.diary td:first-child{text-align:left;white-space:normal;min-width:118px;max-width:150px;position:sticky;left:0;background:var(--card)}
+.diary .dgrp th{text-align:left;padding-top:14px;color:var(--tint);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}
+.diary .now{background:var(--fill);font-weight:600}
+.dname{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.blocksteps{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.blocksteps span{text-align:center;font-size:.75rem;font-weight:600;padding:6px 0;border-radius:10px;background:var(--fill);color:var(--muted)}
+.blocksteps .past{color:var(--fg)}
+.blocksteps .now{background:var(--accent);color:#fff}
 .prbadge{display:inline-block;align-self:flex-start;font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:99px;background:linear-gradient(90deg,#7A0012,#E0283A);color:#fff;margin-top:4px}
 .rpe{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
 .rpeb{border:0;border-radius:10px;min-height:40px;background:var(--fill);font-weight:700;font-variant-numeric:tabular-nums}
@@ -401,10 +413,10 @@ details.dp[open] .chev{transform:rotate(225deg) translateY(-2px)}
 <div id="layer"></div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="body.js?v=54"></script>
-<script src="anim.js?v=54"></script>
-<script src="exercises.js?v=54"></script>
-<script src="nutrition.js?v=54"></script>
-<script src="app.js?v=54"></script>
+<script src="body.js?v=55"></script>
+<script src="anim.js?v=55"></script>
+<script src="exercises.js?v=55"></script>
+<script src="nutrition.js?v=55"></script>
+<script src="app.js?v=55"></script>
 </body>
 </html>
